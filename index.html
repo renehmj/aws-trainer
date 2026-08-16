@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AWS Certification Trainer</title>
+
+<!-- Home-screen install support: opens full screen with no browser chrome. -->
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AWS Trainer">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --line2:#353c4a;
+    --fg:#e6e9ef; --dim:#98a1b3; --accent:#4f9cf9; --radius:12px;
+
+    /* data-viz roles — validated against the #171a21 chart surface */
+    --series:#3987e5;      /* single-series magnitude */
+    --good:#0ca30c;        /* status: mastered      */
+    --warn:#fab219;        /* status: getting there */
+    --crit:#d03b3b;        /* status: needs work    */
+    --inkmute:#898781;     /* axis / grid / not-started */
+    --grid:#2a2f3a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+
+  /* ---------- app shell: side rail + content ---------- */
+  .app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+  .rail{background:var(--panel);border-right:1px solid var(--line);padding:16px 12px;
+    position:sticky;top:0;height:100vh;overflow:auto}
+  .logo{display:flex;align-items:center;gap:9px;padding:2px 8px 14px;font-weight:700;
+    letter-spacing:.3px;font-size:14px}
+  .logo i{width:11px;height:11px;border-radius:3px;background:var(--accent);flex:0 0 auto}
+  .sec{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);
+    padding:14px 8px 7px}
+
+  .path{display:block;width:100%;text-align:left;background:transparent;border:0;
+    border-left:3px solid transparent;border-radius:0 8px 8px 0;padding:9px 11px;
+    margin-bottom:3px;cursor:pointer;color:var(--dim);font:inherit}
+  .path:hover{background:var(--panel2);color:var(--fg)}
+  .path.on{background:var(--panel2);color:var(--fg)}
+  .path .code{font-weight:600;font-size:13px;letter-spacing:.2px}
+  .path .nm{font-size:11.5px;color:var(--dim);display:block;margin-top:1px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .path .mini{height:4px;border-radius:2px;background:var(--bg);margin-top:8px;position:relative}
+  .path .mini b{position:absolute;left:0;top:0;bottom:0;border-radius:2px;display:block}
+  .path .pcs{display:flex;justify-content:space-between;font-size:10.5px;
+    color:var(--dim);margin-top:5px;font-variant-numeric:tabular-nums}
+
+  .navi{display:flex;align-items:center;gap:11px;width:100%;background:transparent;border:0;
+    color:var(--dim);padding:9px 11px;border-radius:8px;cursor:pointer;font:inherit;
+    font-size:14px;margin-bottom:2px}
+  .navi:hover{background:var(--panel2);color:var(--fg)}
+  .navi.active{background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent)}
+  .navi svg{width:16px;height:16px;flex:0 0 auto;stroke:currentColor;fill:none;
+    stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .navi svg .solid{fill:currentColor;stroke:none}
+  .navi .badge{margin-left:auto;font-size:11px;background:var(--crit);color:#fff;
+    border-radius:10px;padding:1px 7px;font-weight:600}
+  .railfoot{margin-top:20px;padding:12px 9px 0;border-top:1px solid var(--line);
+    font-size:11px;color:var(--dim);line-height:1.6}
+
+  .content{min-width:0}
+  .topbar{display:flex;align-items:center;gap:12px;padding:13px 24px;background:var(--panel);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .topbar h1{margin:0;font-size:15px;font-weight:600}
+  .topbar .crumb{color:var(--dim);font-size:13px}
+  .pathchip{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12px;
+    border:1px solid var(--line);border-radius:20px;padding:4px 13px;color:var(--fg);
+    background:var(--panel2);white-space:nowrap}
+  .pathchip i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  main{max-width:1180px;padding:22px 24px 80px}
+
+  @media (max-width:900px){
+    .app{grid-template-columns:1fr}
+    .rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);
+      padding-top:calc(16px + env(safe-area-inset-top))}
+    #pathList{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+    #navList{display:flex;flex-wrap:wrap;gap:4px}
+    .navi{width:auto}
+    main{padding:16px 14px calc(60px + env(safe-area-inset-bottom))}
+    .topbar{padding-left:max(14px, env(safe-area-inset-left));
+      padding-right:max(14px, env(safe-area-inset-right))}
+    /* touch targets and readability on a phone */
+    .opt{padding:14px}
+    .opt input{width:20px;height:20px}
+    .sitem{padding-top:10px;padding-bottom:10px}
+    .pal button{width:38px;height:36px}
+    .side{position:static;max-height:none}
+  }
+  .view{display:none} .view.active{display:block}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim)}
+  .card h2::before{content:"";display:inline-block;width:6px;height:6px;border-radius:2px;
+    background:var(--accent);margin-right:9px;vertical-align:middle}
+  .tag.dom{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+  .tag.d-easy{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+  .tag.d-medium{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+  .tag.d-hard{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,var(--line))}
+  .card .sub{color:var(--dim);font-size:13px;margin:0 0 16px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .cols > .card{margin:0}
+  @media (max-width:860px){ .cols{grid-template-columns:1fr} }
+
+  /* hero */
+  .hero{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:26px;align-items:center}
+  @media (max-width:760px){ .hero{grid-template-columns:1fr} }
+  .figure{font-size:64px;line-height:1;font-weight:600;letter-spacing:-1px}
+  .figure small{font-size:22px;color:var(--dim);font-weight:500;margin-left:4px}
+  .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid currentColor;
+    border-radius:20px;padding:3px 12px;font-size:12px;letter-spacing:.4px;
+    text-transform:uppercase;margin-top:12px}
+  .chip i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 auto}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .tile{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .tile .n{font-size:24px;font-weight:600;line-height:1.15}
+  .tile .l{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-top:5px}
+
+  /* horizontal bar chart */
+  .hrow{margin-bottom:16px}
+  .hrow:last-child{margin-bottom:0}
+  .hlab{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;margin-bottom:7px}
+  .hlab .v{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .track{position:relative;height:10px;background:var(--panel2);border-radius:5px}
+  .track > b{position:absolute;left:0;top:0;height:100%;border-radius:5px;
+    background:var(--series);display:block}
+  .track > u{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--inkmute);
+    text-decoration:none}
+  .hrow.click{cursor:pointer;border-radius:8px;padding:6px;margin:-6px -6px 10px}
+  .hrow.click:hover{background:var(--panel2)}
+
+  /* stacked mastery bar */
+  .stack{display:flex;gap:2px;height:14px}
+  .stack > i{display:block;height:100%}
+  .stack > i:first-child{border-radius:7px 0 0 7px}
+  .stack > i:last-child{border-radius:0 7px 7px 0}
+  .stack > i:only-child{border-radius:7px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--dim)}
+  .legend span{display:flex;align-items:center;gap:7px}
+  .legend i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+
+  /* svg line chart */
+  .plot{width:100%;height:210px;display:block;overflow:visible}
+  .plot .grid{stroke:var(--grid);stroke-width:1}
+  .plot .axis{stroke:var(--line2);stroke-width:1}
+  .plot .thresh{stroke:var(--inkmute);stroke-width:1}
+  .plot .line{fill:none;stroke:var(--series);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+  .plot .dot{fill:var(--series);stroke:var(--panel);stroke-width:2}
+  .plot text{fill:var(--inkmute);font-size:11px;font-variant-numeric:tabular-nums}
+  .plot text.end{fill:var(--fg);font-size:12px;font-weight:600}
+  .hit{fill:transparent;cursor:pointer}
+
+  .viztip{position:fixed;z-index:60;pointer-events:none;opacity:0;transition:opacity .1s;
+    background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 11px;
+    font-size:12.5px;box-shadow:0 6px 20px rgba(0,0,0,.45);max-width:260px}
+  .viztip b{display:block;margin-bottom:3px}
+  .viztip span{color:var(--dim)}
+
+  .tvbtn{background:transparent;border:1px solid var(--line);color:var(--dim);
+    border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer;margin-top:14px}
+  .tvbtn:hover{color:var(--fg)}
+  table.tv{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+  table.tv th{text-align:left;color:var(--dim);font-weight:500;font-size:12px;
+    text-transform:uppercase;letter-spacing:.4px}
+  table.tv th,table.tv td{padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.tv td.n{text-align:right;font-variant-numeric:tabular-nums}
+
+  /* subjects: sidebar + work pane */
+  .split{display:grid;grid-template-columns:270px 1fr;gap:16px;align-items:start}
+  @media (max-width:860px){ .split{grid-template-columns:1fr} }
+  .side{position:sticky;top:66px;max-height:calc(100vh - 90px);overflow:auto;margin:0}
+  .sgroup{margin-bottom:6px}
+  .sgroup > .gh{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600}
+  .sgroup > .gh:hover{background:var(--panel2)}
+  .sgroup > .gh .c{color:var(--dim);font-weight:400;font-size:12px}
+  .sitem{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 16px;border-radius:7px;
+    cursor:pointer;font-size:13.5px;border-left:2px solid transparent}
+  .sitem:hover{background:var(--panel2)}
+  .sitem.on{background:var(--panel2);border-left-color:var(--accent);color:#fff}
+  .sitem .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .sitem .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sitem .pc{margin-left:auto;color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+  .sitem.gap{opacity:.5}
+  .sitem .dot.hollow{background:transparent;border:1.5px solid var(--line2)}
+  .gbtn{width:100%;margin:4px 0 10px;background:transparent;border:1px dashed var(--line2);
+    color:var(--dim);border-radius:7px;padding:6px;font-size:12px;cursor:pointer}
+  .gbtn:hover{color:var(--fg);border-color:var(--accent)}
+
+  /* question rendering */
+  .qmeta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .tag{font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--dim);
+    border:1px solid var(--line);border-radius:20px;padding:3px 10px;background:var(--panel2)}
+  .qtext{font-size:16px;line-height:1.6;margin-bottom:18px;white-space:pre-wrap}
+  .opt{display:flex;gap:12px;align-items:flex-start;background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-bottom:9px;cursor:pointer}
+  .opt:hover{border-color:var(--line2)}
+  .opt input{margin-top:3px;accent-color:var(--accent);flex:0 0 auto}
+  .opt .k{font-weight:600;color:var(--dim);flex:0 0 auto}
+  .opt.correct{border-color:var(--good);background:rgba(12,163,12,.10)}
+  .opt.wrong{border-color:var(--crit);background:rgba(208,59,59,.10)}
+  .opt.locked{cursor:default}
+  .fb{border-radius:9px;padding:14px 16px;margin-top:16px;border:1px solid var(--line);background:var(--panel2)}
+  .fb.ok{border-color:var(--good)} .fb.no{border-color:var(--crit)}
+  .fb h4{margin:0 0 8px;font-size:14px}
+  .fb p{margin:0 0 10px}
+  .fb ul{margin:6px 0 0;padding-left:20px} .fb li{margin-bottom:6px}
+
+  .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center}
+  button.act{background:var(--accent);color:#06203f;border:0;padding:10px 18px;
+    border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}
+  button.act:hover{filter:brightness(1.08)}
+  button.act[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+  button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);
+    padding:9px 15px;border-radius:8px;cursor:pointer;font-size:14px}
+  button.ghost:hover{background:var(--panel2)}
+  select,input[type=number],input[type=search],textarea{background:var(--panel2);color:var(--fg);
+    border:1px solid var(--line);padding:9px 11px;border-radius:8px;font-size:14px}
+  textarea{width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;
+    line-height:1.5;resize:vertical}
+  .draft{background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+    padding:14px;margin-top:12px}
+  .draft.bad{border-color:var(--warn)}
+  .draft .qt{font-size:14px;margin-bottom:8px}
+  .draft ol{margin:0 0 10px;padding-left:22px;font-size:13px;color:var(--dim)}
+  .draft ol li.ans{color:var(--good);font-weight:600}
+  .draft .frow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .draft select{padding:6px 9px;font-size:13px}
+  .draft .letters{display:flex;gap:6px;flex-wrap:wrap}
+  .draft .letters label{display:flex;align-items:center;gap:4px;font-size:12px;
+    border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer;color:var(--dim)}
+  .draft .letters input{accent-color:var(--accent)}
+  .warnline{color:var(--warn);font-size:12.5px;margin-top:8px}
+  #certPick{font-weight:600}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .row{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:14px}
+  .muted{color:var(--dim)} .small{font-size:13px}
+  .empty{color:var(--dim);padding:6px 0}
+  .timer{font-variant-numeric:tabular-nums;font-weight:600}
+  .timer.low{color:var(--crit)}
+  .pal{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  .pal button{width:34px;height:30px;border-radius:6px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px}
+  .pal button.done{color:var(--fg);border-color:var(--accent)}
+  .pal button.flag{border-color:var(--warn);color:var(--warn)}
+  .pal button.cur{outline:2px solid var(--accent)}
+  .rev{border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
+  @media (max-width:640px){ nav{margin-left:0;width:100%} main{padding:16px 14px 60px}
+    .figure{font-size:52px} }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<aside class="rail">
+  <div class="logo"><i></i>AWS Trainer</div>
+
+  <div class="sec">Certification paths</div>
+  <div id="pathList"></div>
+
+  <div class="sec">Study</div>
+  <div id="navList">
+    <button class="navi active" data-view="dashboard">
+      <svg viewBox="0 0 16 16"><rect class="solid" x="2" y="2" width="5.4" height="5.4" rx="1.2"/><rect class="solid" x="8.6" y="2" width="5.4" height="5.4" rx="1.2"/><rect class="solid" x="2" y="8.6" width="5.4" height="5.4" rx="1.2"/><rect class="solid" x="8.6" y="8.6" width="5.4" height="5.4" rx="1.2"/></svg>
+      Dashboard</button>
+    <button class="navi" data-view="topics">
+      <svg viewBox="0 0 16 16"><circle class="solid" cx="3" cy="4" r="1.3"/><path d="M6.5 4h7.5"/><circle class="solid" cx="3" cy="8" r="1.3"/><path d="M6.5 8h7.5"/><circle class="solid" cx="3" cy="12" r="1.3"/><path d="M6.5 12h7.5"/></svg>
+      Subjects</button>
+    <button class="navi" data-view="practice">
+      <svg viewBox="0 0 16 16"><path class="solid" d="M4.5 2.5 13 8l-8.5 5.5z"/></svg>
+      Practice</button>
+    <button class="navi" data-view="mock">
+      <svg viewBox="0 0 16 16"><circle cx="8" cy="8.8" r="5.4"/><path d="M8 5.8v3l2 1.3"/><path d="M6.2 1.6h3.6"/></svg>
+      Mock Exam</button>
+    <button class="navi" data-view="review">
+      <svg viewBox="0 0 16 16"><path d="M13.4 8a5.4 5.4 0 1 1-1.6-3.9"/><path d="M13.7 2.3v3.3h-3.3"/></svg>
+      Review Missed<span class="badge" id="missBadge" style="display:none"></span></button>
+    <button class="navi" data-view="data">
+      <svg viewBox="0 0 16 16"><path d="M8 2.2v7.2"/><path d="M5 6.6 8 9.6l3-3"/><path d="M3 13.2h10"/></svg>
+      Data</button>
+  </div>
+
+  <div class="railfoot" id="railFoot"></div>
+</aside>
+
+<div class="content">
+  <header class="topbar">
+    <h1 id="viewTitle">Dashboard</h1>
+    <span class="crumb" id="certMeta"></span>
+    <span class="pathchip" id="pathChip"></span>
+  </header>
+
+<main>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section id="dashboard" class="view">
+    <div class="card">
+      <div class="hero">
+        <div>
+          <h2>Readiness</h2>
+          <div class="figure" id="heroFig">—</div>
+          <div id="heroChip"></div>
+        </div>
+        <div>
+          <div class="hlab"><span id="heroLabel" class="muted small"></span>
+            <span class="v" id="heroTarget"></span></div>
+          <div class="track"><b id="heroBar" style="width:0"></b><u id="heroMark"></u></div>
+          <p class="small muted" id="heroNote" style="margin:14px 0 0"></p>
+        </div>
+      </div>
+      <div class="tiles" id="heroTiles" style="margin-top:22px"></div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <h2>Accuracy by domain</h2>
+        <p class="sub">Marker shows the 85% readiness line. Exam weight in brackets.</p>
+        <div id="domChart"></div>
+      </div>
+      <div class="card">
+        <h2>Subject mastery</h2>
+        <p class="sub">Where every subject in this path currently sits.</p>
+        <div id="masteryChart"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Mock exam scores</h2>
+      <p class="sub" id="mockChartSub"></p>
+      <div id="scoreChart"></div>
+    </div>
+
+    <div class="card">
+      <h2>Weakest subjects</h2>
+      <p class="sub">Click any subject to work on it.</p>
+      <div id="weakChart"></div>
+    </div>
+  </section>
+
+  <!-- ===================== SUBJECTS ===================== -->
+  <section id="topics" class="view">
+    <div class="split">
+      <aside class="card side" id="subjectNav">
+        <h2 style="margin-bottom:12px">Subjects</h2>
+        <input type="search" id="topicSearch" placeholder="Filter…" style="width:100%">
+        <label class="small muted" style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:10px 0 14px">
+          <input type="checkbox" id="topicWeakOnly" style="accent-color:var(--accent)"> needs work only
+        </label>
+        <div id="subjectTree"></div>
+      </aside>
+      <div id="subjectWork"></div>
+    </div>
+  </section>
+
+  <!-- ===================== PRACTICE ===================== -->
+  <section id="practice" class="view">
+    <div class="card">
+      <h2>Adaptive practice</h2>
+      <p class="sub">Endless stream across the whole path, weighted toward your weakest subjects.</p>
+      <div id="practiceHost"></div>
+    </div>
+  </section>
+
+  <!-- ===================== MOCK ===================== -->
+  <section id="mock" class="view">
+    <div class="card" id="mockIntro">
+      <h2>Mock exam</h2>
+      <p class="sub" id="mockRules"></p>
+      <p class="muted small" id="mockAvail"></p>
+      <button class="act" id="mockStart">Start mock exam</button>
+    </div>
+    <div class="card" id="mockRun" style="display:none">
+      <div class="row" style="margin-bottom:14px">
+        <div><strong id="mockPos"></strong></div>
+        <div class="timer" id="mockTimer"></div>
+      </div>
+      <div id="mockHost"></div>
+      <div class="pal" id="mockPal"></div>
+      <div class="actions">
+        <button class="ghost" id="mockPrev">Previous</button>
+        <button class="ghost" id="mockNext">Next</button>
+        <button class="ghost" id="mockFlag">Flag for later</button>
+        <button class="act" id="mockSubmit" style="margin-left:auto">Submit exam</button>
+      </div>
+    </div>
+    <div id="mockResult"></div>
+  </section>
+
+  <!-- ===================== REVIEW ===================== -->
+  <section id="review" class="view">
+    <div class="card">
+      <h2>Review missed</h2>
+      <p class="sub">Every question you got wrong on this path, resurfaced until you answer it correctly.</p>
+      <div id="reviewHost"></div>
+    </div>
+  </section>
+
+  <!-- ===================== DATA ===================== -->
+  <section id="data" class="view">
+
+    <div class="card">
+      <h2>Paste questions</h2>
+      <p class="sub">Paste examples in whatever format you have them. Options can be
+        lettered (<code>A)</code> / <code>A.</code> / <code>A -</code>) or just one plain
+        line each. Answers are read from <code>Answer: B</code> or <code>Correct: B, D</code>
+        if present — if your source does not include them, tick the correct options on the
+        draft. A "(Select TWO)" instruction is detected and enforced. Explanations are
+        picked up when present.</p>
+      <textarea id="pasteBox" rows="9" placeholder="1. A company needs to …&#10;A) First option&#10;B) Second option&#10;C) Third option&#10;D) Fourth option&#10;Answer: B&#10;Explanation: because …&#10;&#10;2. …"></textarea>
+      <div class="controls" style="margin-top:12px">
+        <button class="act" id="pasteParse">Parse</button>
+        <button class="ghost" id="pasteClear">Clear</button>
+        <span class="muted small" id="pasteMsg"></span>
+      </div>
+      <div id="pastePreview"></div>
+    </div>
+
+    <div class="card">
+      <h2>Your pasted questions</h2>
+      <p class="sub">Stored in this browser for the active path and mixed into practice,
+        drills and mocks alongside the built-in bank. Export them to hand back for rewriting
+        into polished originals.</p>
+      <div id="addedList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Export / import progress</h2>
+      <p class="sub">Progress is stored per path in this browser. Export covers every path at once.</p>
+      <div class="controls">
+        <button class="act" id="btnExport">Export all paths</button>
+        <button class="ghost" id="btnImport">Import</button>
+        <button class="ghost" id="btnReset">Reset this path</button>
+        <input type="file" id="fileImport" accept="application/json" style="display:none">
+      </div>
+      <div id="dataMsg" class="small" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h2>Question banks</h2>
+      <div id="bankStats"></div>
+    </div>
+  </section>
+
+</main>
+</div><!-- /.content -->
+</div><!-- /.app -->
+
+<div class="viztip" id="viztip"></div>
+
+<script src="certs.js"></script>
+<script src="bank-saa-c03.js"></script>
+<script src="bank-dva-c02.js"></script>
+<script src="bank-sap-c02.js"></script>
+<script src="bank-dop-c02.js"></script>
+<script>
+/* =======================================================================
+ * AWS Certification Adaptive Trainer
+ *
+ * Every certification path is independent: its own bank (window.BANKS[id]),
+ * its own domains and exam rules (window.CERTS), and its own progress under
+ * localStorage key "trainer_v2::<certId>". Switching paths swaps all of it.
+ *
+ * Per-path state shape — preserve when editing or progress is lost:
+ *   { v, seq, questions:{id:{attempts,correct,lastSeen}},
+ *     topics:{"domain :: topic":{attempts,correct}},
+ *     missed:[id], history:[{ts,total,correct,score,passed,byDomain}] }
+ * ======================================================================= */
+
+const CERTS = window.CERTS || [];
+const ACTIVE_KEY = "trainer_v2::active";
+const stateKey = id => "trainer_v2::" + id;
+const READY = 0.85, RECENT = 12;
+
+/* Path identity colours — categorical slots 1–4, validated for the dark surface
+ * (#171a21): lightness band, chroma floor, CVD separation and 3:1 contrast all
+ * pass. The colour never carries meaning alone; the path code sits beside it. */
+const PATH_COLOR = {
+  "SAA-C03": "#3987e5",   /* blue   */
+  "DVA-C02": "#d95926",   /* orange */
+  "SAP-C02": "#199e70",   /* aqua   */
+  "DOP-C02": "#c98500"    /* yellow */
+};
+const pathColor = id => PATH_COLOR[id] || "#3987e5";
+
+const VIEW_TITLE = {
+  dashboard: "Dashboard", topics: "Subjects", practice: "Adaptive practice",
+  mock: "Mock exam", review: "Review missed", data: "Data"
+};
+
+let CERT, BANK = [], byId = {}, DOMAINS = [], DW = {}, TOPICS = [], S;
+
+/* ---------------------------- state ---------------------------- */
+
+function blank(){ return {v:2, seq:0, questions:{}, topics:{}, missed:[], history:[]}; }
+
+function load(){
+  try{
+    const raw = localStorage.getItem(stateKey(CERT.id));
+    if(!raw) return blank();
+    const s = JSON.parse(raw);
+    return Object.assign(blank(), s, {
+      questions: s.questions || {}, topics: s.topics || {},
+      missed: s.missed || [], history: s.history || []
+    });
+  }catch(e){ return blank(); }
+}
+function save(){ try{ localStorage.setItem(stateKey(CERT.id), JSON.stringify(S)); }catch(e){} }
+
+// One-time lift of the original single-cert state into the SAA path.
+(function migrate(){
+  try{
+    const old = localStorage.getItem("saa_trainer_v1");
+    if(old && !localStorage.getItem(stateKey("SAA-C03"))){
+      localStorage.setItem(stateKey("SAA-C03"), old);
+    }
+  }catch(e){}
+})();
+
+const tkey = q => q.domain + " :: " + q.topic;
+const pct = (c,a) => a > 0 ? c/a : null;
+const topicAcc = q => { const t = S.topics[tkey(q)]; return t ? pct(t.correct,t.attempts) : null; };
+const qStat = q => S.questions[q.id] || null;
+const sameSet = (a,b) => a.length === b.length && a.every(x => b.includes(x));
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ------------------------- adaptive engine -------------------------
+ *   unseen topic            -> moderate-high baseline
+ *   weaker topic            -> 0.25 + (1 - accuracy) * 2.0
+ *   question never seen     -> x1.8 novelty
+ *   question below 50%      -> x1.5
+ *   question seen recently  -> damped over the next ~12 answers
+ * ------------------------------------------------------------------ */
+
+function weightFor(q){
+  const acc = topicAcc(q);
+  let w = acc === null ? 1.2 : 0.25 + (1 - acc) * 2.0;
+  const st = qStat(q);
+  if(!st || st.attempts === 0){ w *= 1.8; }
+  else{
+    const qacc = pct(st.correct, st.attempts);
+    if(qacc !== null && qacc < 0.5) w *= 1.5;
+    const age = S.seq - (st.lastSeen ?? -RECENT);
+    if(age < RECENT) w *= Math.max(0.05, age / RECENT);
+  }
+  return Math.max(w, 0.01);
+}
+
+function pickWeighted(pool){
+  if(!pool.length) return null;
+  const ws = pool.map(weightFor);
+  let r = Math.random() * ws.reduce((a,b) => a+b, 0);
+  for(let i=0;i<pool.length;i++){ r -= ws[i]; if(r <= 0) return pool[i]; }
+  return pool[pool.length-1];
+}
+
+function record(q, wasCorrect){
+  S.seq += 1;
+  const st = S.questions[q.id] || (S.questions[q.id] = {attempts:0, correct:0, lastSeen:0});
+  st.attempts += 1; if(wasCorrect) st.correct += 1; st.lastSeen = S.seq;
+  const k = tkey(q);
+  const t = S.topics[k] || (S.topics[k] = {attempts:0, correct:0});
+  t.attempts += 1; if(wasCorrect) t.correct += 1;
+  const i = S.missed.indexOf(q.id);
+  if(wasCorrect){ if(i >= 0) S.missed.splice(i,1); }
+  else if(i < 0){ S.missed.push(q.id); }
+  save();
+  updateMissBadge();
+}
+
+// The rail badge must track the queue as you answer, not only on dashboard visits.
+function updateMissBadge(){
+  const b = document.getElementById("missBadge");
+  if(!b) return;
+  b.textContent = S.missed.length;
+  b.style.display = S.missed.length ? "" : "none";
+}
+
+/* ---------------------------- path switching ---------------------------- */
+
+/* Subjects = the syllabus in certs.js UNION whatever topics the bank uses.
+ * Syllabus entries with no questions yet still appear, so the whole study
+ * surface is browsable and coverage gaps are visible. */
+function buildTopics(){
+  const m = new Map();
+  CERT.domains.forEach(d => (d.topics || []).forEach(t => {
+    const k = d.name + " :: " + t;
+    m.set(k, {key:k, domain:d.name, topic:t, ids:[], syllabus:true});
+  }));
+  BANK.forEach(q => {
+    const k = tkey(q);
+    if(!m.has(k)) m.set(k, {key:k, domain:q.domain, topic:q.topic, ids:[], syllabus:false});
+    m.get(k).ids.push(q.id);
+  });
+  return [...m.values()];
+}
+
+function setCert(id){
+  CERT = CERTS.find(c => c.id === id) || CERTS[0];
+  try{ localStorage.setItem(ACTIVE_KEY, CERT.id); }catch(e){}
+  // Built-in bank plus anything pasted in for this path.
+  BANK = ((window.BANKS || {})[CERT.id] || []).concat(loadAdded(CERT.id));
+  byId = {}; BANK.forEach(q => byId[q.id] = q);
+  DOMAINS = CERT.domains.map(d => d.name);
+  DW = {}; CERT.domains.forEach(d => DW[d.name] = d.weight);
+  S = load();
+  TOPICS = buildTopics();
+
+  session = null;
+  clearInterval(mockTick); mockTick = null; mock = null;
+  document.getElementById("mockRun").style.display = "none";
+  document.getElementById("mockIntro").style.display = "";
+  document.getElementById("mockResult").innerHTML = "";
+  document.getElementById("practiceHost").innerHTML = "";
+
+  // Tint the whole UI with this path's identity colour.
+  const c = pathColor(CERT.id);
+  document.documentElement.style.setProperty("--accent", c);
+  document.documentElement.style.setProperty("--series", c);
+  document.getElementById("certMeta").textContent = CERT.name;
+  document.getElementById("pathChip").innerHTML =
+    '<i style="background:' + c + '"></i>' + esc(CERT.id) + ' · phase ' + CERT.phase;
+  document.getElementById("railFoot").innerHTML =
+    esc(CERT.id) + ' · ' + BANK.length + ' questions<br>' +
+    CERT.exam.questions + 'q · ' + CERT.exam.minutes + 'min · ' + CERT.exam.pass + ' to pass';
+
+  refreshDashboard();
+  renderSidebar(); renderWorkHome();
+  renderAdded();
+  paintMockIntro();
+  if(document.getElementById("practice").classList.contains("active")) nextPractice();
+  if(document.getElementById("review").classList.contains("active")) showReview();
+}
+
+/* ---------------------------- question UI ---------------------------- */
+
+function renderQuestion(host, q, opts){
+  opts = opts || {};
+  const multi = q.type === "multi";
+  const sel = new Set(opts.answer || []);
+  host.innerHTML =
+    '<div class="qmeta">' +
+      '<span class="tag dom">' + esc(shortDomain(q.domain)) + '</span>' +
+      '<span class="tag">' + esc(q.topic) + '</span>' +
+      '<span class="tag d-' + esc(q.difficulty) + '">' + esc(q.difficulty) + '</span>' +
+      '<span class="tag">' + esc(q.id) + '</span>' +
+      (multi ? '<span class="tag">choose ' + q.correct.length + '</span>' : '') +
+    '</div>' +
+    '<div class="qtext">' + esc(q.question) + '</div>' +
+    '<div class="opts">' + q.options.map(o =>
+      '<label class="opt" data-id="' + o.id + '">' +
+        '<input type="' + (multi ? "checkbox" : "radio") + '" name="opt" value="' + o.id + '"' +
+          (sel.has(o.id) ? " checked" : "") + (opts.locked ? " disabled" : "") + '>' +
+        '<span class="k">' + o.id + '</span><span>' + esc(o.text) + '</span>' +
+      '</label>').join("") +
+    '</div>' +
+    (opts.locked ? '' : '<div class="actions"><button class="act" data-submit>Submit answer</button></div>') +
+    '<div data-fb></div>';
+
+  const inputs = [...host.querySelectorAll("input")];
+  const chosen = () => inputs.filter(i => i.checked).map(i => i.value);
+  if(opts.onChange) inputs.forEach(i => i.addEventListener("change", () => opts.onChange(chosen())));
+  if(opts.locked){ grade(opts.answer || []); return; }
+
+  host.querySelector("[data-submit]").addEventListener("click", () => {
+    const picked = chosen();
+    if(!picked.length) return;
+    const ok = sameSet(picked, q.correct);
+    if(opts.graded !== false) record(q, ok);
+    grade(picked);
+    const b = host.querySelector("[data-submit]"); if(b) b.remove();
+    if(opts.onDone) opts.onDone(ok, picked);
+  });
+
+  function grade(picked){
+    const ok = sameSet(picked, q.correct);
+    host.querySelectorAll(".opt").forEach(el => {
+      const id = el.dataset.id;
+      el.classList.add("locked");
+      el.querySelector("input").disabled = true;
+      if(q.correct.includes(id)) el.classList.add("correct");
+      else if(picked.includes(id)) el.classList.add("wrong");
+    });
+    const wrongs = Object.entries(q.whyWrong || {}).filter(([k]) => !q.correct.includes(k));
+    host.querySelector("[data-fb]").innerHTML =
+      '<div class="fb ' + (ok ? "ok" : "no") + '">' +
+        '<h4>' + (ok ? "Correct" : "Incorrect — answer: " + q.correct.join(", ")) + '</h4>' +
+        '<p>' + esc(q.explanation) + '</p>' +
+        (wrongs.length ? '<div class="small muted">Why the others are wrong</div><ul class="small">' +
+          wrongs.map(([k,v]) => '<li><strong>' + k + '</strong> — ' + esc(v) + '</li>').join("") + '</ul>' : '') +
+      '</div>';
+  }
+}
+
+function shortDomain(d){
+  return d.replace("Design ","").replace(" Architectures","").replace("Continuous Improvement for ","CI: ");
+}
+
+/* ---------------------------- practice ---------------------------- */
+
+function nextPractice(){
+  const host = document.getElementById("practiceHost");
+  const q = pickWeighted(BANK);
+  if(!q){ host.innerHTML = emptyBank(); return; }
+  renderQuestion(host, q, {
+    onDone(){
+      const bar = document.createElement("div");
+      bar.className = "actions";
+      bar.innerHTML = '<button class="act">Next question</button>';
+      bar.querySelector("button").addEventListener("click", nextPractice);
+      host.appendChild(bar);
+    }
+  });
+}
+
+function emptyBank(){
+  return '<p class="empty">No questions in the ' + esc(CERT.id) + ' bank yet. ' +
+    'Add them to <code>bank-' + CERT.id.toLowerCase() + '.js</code> and refresh.</p>';
+}
+
+/* ---------------------------- subjects ---------------------------- */
+
+function statOfKey(key){
+  const t = S.topics[key];
+  const a = t ? t.attempts : 0, c = t ? t.correct : 0;
+  return {a, c, acc: a ? c/a : null};
+}
+function statusOf(acc, attempts){
+  if(!attempts)   return {label:"not started",   color:"var(--inkmute)"};
+  if(acc >= 0.85) return {label:"mastered",      color:"var(--good)"};
+  if(acc >= 0.70) return {label:"getting there", color:"var(--warn)"};
+  return            {label:"needs work",       color:"var(--crit)"};
+}
+
+// A syllabus subject with no questions written yet is a coverage gap, not a
+// study state — it gets its own marker and cannot be started.
+function subjectStatus(t){
+  if(!t.ids.length) return {label:"no questions", color:"var(--line2)", empty:true};
+  const s = statOfKey(t.key);
+  return Object.assign(statusOf(s.acc, s.a), {empty:false});
+}
+
+let topicView = {q:"", weakOnly:false};
+const collapsed = new Set();
+let session = null;
+
+function subjectRows(){
+  const term = topicView.q.trim().toLowerCase();
+  let list = TOPICS.map(t => {
+    const s = statOfKey(t.key);
+    return Object.assign({}, t, s, {status: subjectStatus(t)});
+  });
+  if(term) list = list.filter(t =>
+    t.topic.toLowerCase().includes(term) || t.domain.toLowerCase().includes(term));
+  // "needs work" is about accuracy, so subjects with no questions are excluded —
+  // you cannot work on them.
+  if(topicView.weakOnly) list = list.filter(t => t.ids.length && (t.acc === null || t.acc < READY));
+  return list;
+}
+const weakFirst = (a,b) => (a.acc === null ? -0.5 : a.acc) - (b.acc === null ? -0.5 : b.acc);
+
+function renderSidebar(){
+  const tree = document.getElementById("subjectTree");
+  const list = subjectRows();
+  if(!TOPICS.length){ tree.innerHTML = '<p class="empty small">No questions in this path yet.</p>'; return; }
+  if(!list.length){ tree.innerHTML = '<p class="empty small">Nothing matches that filter.</p>'; return; }
+
+  tree.innerHTML = DOMAINS.map(d => {
+    const rows = list.filter(t => t.domain === d).sort(weakFirst);
+    if(!rows.length) return "";
+    let a = 0, c = 0; rows.forEach(t => { a += t.a; c += t.c; });
+    const withQs = rows.filter(t => t.ids.length).length;
+    const open = !collapsed.has(d);
+    return '<div class="sgroup">' +
+      '<div class="gh" data-toggle="' + esc(d) + '">' +
+        '<span>' + (open ? "▾" : "▸") + " " + esc(shortDomain(d)) + '</span>' +
+        '<span class="c">' + (a ? Math.round(c/a*100) + "%" : withQs + "/" + rows.length) + '</span></div>' +
+      (open
+        ? rows.map(t =>
+            '<div class="sitem' + (session && session.key === t.key ? " on" : "") +
+                (t.status.empty ? " gap" : "") + '" data-key="' + esc(t.key) + '">' +
+              '<i class="dot' + (t.status.empty ? " hollow" : "") + '"' +
+                (t.status.empty ? "" : ' style="background:' + t.status.color + '"') + '></i>' +
+              '<span class="nm" title="' + esc(t.topic) + '">' + esc(t.topic) + '</span>' +
+              '<span class="pc">' + (t.a ? Math.round(t.acc*100) + "%" : t.ids.length + "q") + '</span>' +
+            '</div>').join("") +
+          '<button class="gbtn" data-domain="' + esc(d) + '">Whole domain</button>'
+        : "") +
+    '</div>';
+  }).join("");
+
+  tree.querySelectorAll(".gh").forEach(el => el.addEventListener("click", () => {
+    const d = el.dataset.toggle;
+    collapsed.has(d) ? collapsed.delete(d) : collapsed.add(d);
+    renderSidebar();
+  }));
+  tree.querySelectorAll(".sitem").forEach(el =>
+    el.addEventListener("click", () => openSubject({key: el.dataset.key})));
+  tree.querySelectorAll("[data-domain]").forEach(el =>
+    el.addEventListener("click", () => openSubject({domain: el.dataset.domain})));
+}
+
+function renderWorkHome(){
+  const host = document.getElementById("subjectWork");
+  if(!TOPICS.length){ host.innerHTML = '<div class="card">' + emptyBank() + '</div>'; return; }
+  const rows = TOPICS.map(t => {
+    const s = statOfKey(t.key); return {t, s, st: subjectStatus(t)};
+  });
+  const buckets = {"mastered":0, "getting there":0, "needs work":0, "not started":0, "no questions":0};
+  rows.forEach(r => buckets[r.st.label]++);
+  const startable = rows.filter(r => !r.st.empty);
+  const weakest = startable.slice().sort((a,b) => weakFirst({acc:a.s.acc}, {acc:b.s.acc}))[0];
+
+  host.innerHTML =
+    '<div class="card">' +
+      '<h2>Pick a subject</h2>' +
+      '<p class="sub">Choose one on the left to start an adaptive session on it. ' +
+        'The list stays visible while you answer, so you can jump between subjects freely.</p>' +
+      '<div class="tiles">' +
+        tile(TOPICS.length, "Subjects in syllabus") +
+        tile(startable.length, "With questions") +
+        tile(buckets["mastered"], "Mastered") +
+        tile(buckets["needs work"] + buckets["getting there"], "Need work") +
+        tile(buckets["no questions"], "Awaiting questions") +
+      '</div>' +
+      (weakest ? '<div class="actions"><button class="act" id="startWeakest">Start with my weakest subject</button></div>' : "") +
+    '</div>';
+  const b = document.getElementById("startWeakest");
+  if(b) b.addEventListener("click", () => openSubject({key: weakest.t.key}));
+}
+
+function openSubject(sel){
+  if(sel.key){
+    const t = TOPICS.find(x => x.key === sel.key);
+    if(!t) return;
+    session = {key:t.key, label:t.topic, sub:t.domain, pool:t.ids.map(id => byId[id]),
+               answered:0, correct:0};
+  }else{
+    const pool = BANK.filter(q => q.domain === sel.domain);
+    if(!pool.length) return;
+    session = {key:null, label:sel.domain, pool, answered:0, correct:0,
+               sub: pool.length + " questions across " +
+                    TOPICS.filter(t => t.domain === sel.domain).length + " subjects"};
+  }
+  showView("topics");
+  document.getElementById("subjectWork").innerHTML =
+    '<div class="card">' +
+      '<div class="row" style="align-items:center">' +
+        '<div><div id="sessTitle" style="font-size:17px;font-weight:600"></div>' +
+        '<div class="muted small" id="sessSub"></div></div>' +
+        '<button class="ghost" id="sessBack">Done</button></div>' +
+      '<div class="tiles" id="sessStats" style="margin-top:16px"></div>' +
+    '</div>' +
+    '<div class="card"><div id="sessHost"></div></div>';
+  document.getElementById("sessTitle").textContent = session.label;
+  document.getElementById("sessSub").textContent = session.sub;
+  document.getElementById("sessBack").addEventListener("click", closeSession);
+  renderSidebar();
+  nextSessionQuestion();
+}
+
+function closeSession(){
+  session = null;
+  renderSidebar(); renderWorkHome(); refreshDashboard();
+}
+
+function paintSessionStats(){
+  const s = session.key ? statOfKey(session.key) : (() => {
+    let a = 0, c = 0;
+    session.pool.forEach(q => { const st = S.questions[q.id]; if(st){ a += st.attempts; c += st.correct; } });
+    return {a, c, acc: a ? c/a : null};
+  })();
+  const unseen = session.pool.filter(q => !S.questions[q.id]).length;
+  document.getElementById("sessStats").innerHTML =
+    tile(session.answered ? Math.round(session.correct/session.answered*100) + "%" : "—",
+         "This session (" + session.correct + "/" + session.answered + ")") +
+    tile(s.acc === null ? "—" : Math.round(s.acc*100) + "%", "All-time here") +
+    tile(session.pool.length, "Questions") +
+    tile(unseen, "Never attempted");
+}
+
+function nextSessionQuestion(){
+  if(!session) return;
+  paintSessionStats();
+  const host = document.getElementById("sessHost");
+  const q = pickWeighted(session.pool);
+  if(!q){
+    host.innerHTML = '<p class="empty">No questions written for this subject yet. ' +
+      'It is part of the ' + esc(CERT.id) + ' syllabus, so questions using ' +
+      '<code>topic: "' + esc(session.label) + '"</code> in <code>bank-' +
+      CERT.id.toLowerCase() + '.js</code> will appear here.</p>';
+    return;
+  }
+  renderQuestion(host, q, {
+    onDone(ok){
+      session.answered++; if(ok) session.correct++;
+      paintSessionStats(); renderSidebar();
+      const bar = document.createElement("div");
+      bar.className = "actions";
+      bar.innerHTML = '<button class="act">Next question</button>' +
+                      '<button class="ghost" data-done>Finish subject</button>';
+      bar.querySelector(".act").addEventListener("click", nextSessionQuestion);
+      bar.querySelector("[data-done]").addEventListener("click", closeSession);
+      host.appendChild(bar);
+    }
+  });
+}
+
+/* ---------------------------- mock exam ---------------------------- */
+
+let mock = null, mockTick = null;
+
+function paintMockIntro(){
+  const e = CERT.exam;
+  document.getElementById("mockRules").textContent =
+    e.questions + " questions, " + e.minutes + " minutes, scored " + e.min + "–" + e.max +
+    " with " + e.pass + " to pass. Domain mix matches the real blueprint.";
+  document.getElementById("mockAvail").textContent = !BANK.length
+    ? "No questions in this path yet — add some to bank-" + CERT.id.toLowerCase() + ".js."
+    : BANK.length >= e.questions
+      ? "Bank holds " + BANK.length + " questions — a full " + e.questions + "-question exam will be built."
+      : "Bank holds " + BANK.length + " questions, so this mock uses " + BANK.length +
+        " with the time limit scaled to match.";
+  document.getElementById("mockStart").disabled = !BANK.length;
+}
+
+function buildMockSet(){
+  const N = CERT.exam.questions;
+  const pools = {}; DOMAINS.forEach(d => pools[d] = BANK.filter(q => q.domain === d));
+  const raw = DOMAINS.map(d => ({d, exact: N * DW[d]}));
+  const alloc = {}; let used = 0;
+  raw.forEach(r => { alloc[r.d] = Math.floor(r.exact); used += alloc[r.d]; });
+  raw.slice().sort((a,b) => (b.exact - Math.floor(b.exact)) - (a.exact - Math.floor(a.exact)))
+     .forEach(r => { if(used < N){ alloc[r.d]++; used++; } });
+
+  const set = [], leftovers = [];
+  DOMAINS.forEach(d => {
+    const left = pools[d].slice();
+    const take = Math.min(alloc[d], left.length);
+    for(let i=0;i<take;i++){ const q = pickWeighted(left); set.push(q); left.splice(left.indexOf(q),1); }
+    leftovers.push(...left);
+  });
+  while(set.length < N && leftovers.length){
+    const q = pickWeighted(leftovers); set.push(q); leftovers.splice(leftovers.indexOf(q),1);
+  }
+  for(let i=set.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [set[i],set[j]]=[set[j],set[i]]; }
+  return set;
+}
+
+function startMock(){
+  const set = buildMockSet();
+  if(!set.length) return;
+  const secs = Math.round(CERT.exam.minutes * 60 * (set.length / CERT.exam.questions));
+  mock = {set, i:0, answers:{}, flags:new Set(), left:secs};
+  document.getElementById("mockIntro").style.display = "none";
+  document.getElementById("mockResult").innerHTML = "";
+  document.getElementById("mockRun").style.display = "";
+  clearInterval(mockTick);
+  mockTick = setInterval(() => { mock.left--; paintTimer(); if(mock.left <= 0) submitMock(); }, 1000);
+  paintTimer(); showMock();
+}
+
+function paintTimer(){
+  const el = document.getElementById("mockTimer");
+  if(!mock) return;
+  const t = Math.max(0, mock.left);
+  el.textContent = [Math.floor(t/3600), Math.floor(t%3600/60), t%60]
+    .map(n => String(n).padStart(2,"0")).join(":");
+  el.classList.toggle("low", t < 300);
+}
+
+function showMock(){
+  const q = mock.set[mock.i];
+  document.getElementById("mockPos").textContent = "Question " + (mock.i+1) + " of " + mock.set.length;
+  renderQuestion(document.getElementById("mockHost"), q, {
+    answer: mock.answers[q.id] || [],
+    onChange(ids){ mock.answers[q.id] = ids; paintPalette(); },
+    graded: false
+  });
+  const btn = document.querySelector("#mockHost [data-submit]");
+  if(btn) btn.remove();                       // the mock grades at the end, not per question
+  document.getElementById("mockFlag").textContent = mock.flags.has(q.id) ? "Unflag" : "Flag for later";
+  document.getElementById("mockPrev").disabled = mock.i === 0;
+  document.getElementById("mockNext").disabled = mock.i === mock.set.length - 1;
+  paintPalette();
+}
+
+function paintPalette(){
+  const pal = document.getElementById("mockPal");
+  pal.innerHTML = mock.set.map((q,i) => {
+    const cls = [];
+    if((mock.answers[q.id]||[]).length) cls.push("done");
+    if(mock.flags.has(q.id)) cls.push("flag");
+    if(i === mock.i) cls.push("cur");
+    return '<button class="' + cls.join(" ") + '" data-i="' + i + '">' + (i+1) + '</button>';
+  }).join("");
+  pal.querySelectorAll("button").forEach(b =>
+    b.addEventListener("click", () => { mock.i = +b.dataset.i; showMock(); }));
+}
+
+function submitMock(){
+  clearInterval(mockTick); mockTick = null;
+  const byDomain = {}; DOMAINS.forEach(d => byDomain[d] = {total:0, correct:0});
+  let correct = 0;
+  mock.set.forEach(q => {
+    const picked = mock.answers[q.id] || [];
+    const ok = picked.length ? sameSet(picked, q.correct) : false;
+    if(ok) correct++;
+    byDomain[q.domain].total++; if(ok) byDomain[q.domain].correct++;
+    record(q, ok);
+  });
+  const e = CERT.exam, total = mock.set.length;
+  const score = Math.round(e.min + (correct/total) * (e.max - e.min));
+  const passed = score >= e.pass;
+  S.history.push({ts:Date.now(), total, correct, score, passed, byDomain});
+  save();
+
+  document.getElementById("mockRun").style.display = "none";
+  document.getElementById("mockIntro").style.display = "";
+
+  document.getElementById("mockResult").innerHTML =
+    '<div class="card"><h2>Result</h2><div class="tiles">' +
+      tile(score, "Scaled score", passed ? "var(--good)" : "var(--crit)") +
+      tile(Math.round(correct/total*100) + "%", "Correct (" + correct + "/" + total + ")") +
+      tile(passed ? "PASS" : "FAIL", e.pass + " to pass", passed ? "var(--good)" : "var(--crit)") +
+    '</div><div style="margin-top:20px">' +
+      DOMAINS.map(d => {
+        const b = byDomain[d], p = b.total ? Math.round(b.correct/b.total*100) : 0;
+        return hbar(esc(d), p, b.correct + "/" + b.total + " · " + p + "%");
+      }).join("") +
+    '</div><div class="actions"><button class="ghost" id="mockReview">Review all answers</button></div></div>' +
+    '<div class="card" id="mockReviewHost" style="display:none"></div>';
+
+  document.getElementById("mockReview").addEventListener("click", () => {
+    const host = document.getElementById("mockReviewHost");
+    host.style.display = "";
+    host.innerHTML = '<h2>Answer review</h2>';
+    mock.set.forEach((q,i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "rev";
+      wrap.innerHTML = '<div class="small muted">Question ' + (i+1) + '</div>';
+      const inner = document.createElement("div");
+      wrap.appendChild(inner); host.appendChild(wrap);
+      renderQuestion(inner, q, {locked:true, answer: mock.answers[q.id] || []});
+    });
+  });
+  refreshDashboard();
+}
+
+/* ---------------------------- review missed ---------------------------- */
+
+function showReview(){
+  const host = document.getElementById("reviewHost");
+  const queue = S.missed.map(id => byId[id]).filter(Boolean);
+  if(!queue.length){
+    host.innerHTML = '<p class="empty">Nothing in the queue. Missed questions land here until you answer them correctly.</p>';
+    return;
+  }
+  const q = queue[0];
+  host.innerHTML = '<p class="small muted">' + queue.length + ' question' +
+    (queue.length>1?'s':'') + ' in the queue.</p><div id="revQ"></div>';
+  renderQuestion(document.getElementById("revQ"), q, {
+    onDone(){
+      const bar = document.createElement("div");
+      bar.className = "actions";
+      bar.innerHTML = '<button class="act">Next</button>';
+      bar.querySelector("button").addEventListener("click", () => { showReview(); refreshDashboard(); });
+      document.getElementById("revQ").appendChild(bar);
+    }
+  });
+}
+
+/* ============================ visualisation ============================
+ * Single-series magnitude -> one colour for every bar (--series).
+ * Status colours (mastered / getting there / needs work) always ship with a
+ * text label, never colour alone. Every chart has a table view twin.
+ * ===================================================================== */
+
+const tip = document.getElementById("viztip");
+function showTip(html, ev){
+  tip.innerHTML = html; tip.style.opacity = "1";
+  const pad = 14, w = 260;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  if(x + w > window.innerWidth) x = ev.clientX - w - pad;
+  tip.style.left = Math.max(6,x) + "px"; tip.style.top = y + "px";
+}
+function hideTip(){ tip.style.opacity = "0"; }
+
+function tile(n, l, color){
+  return '<div class="tile"><div class="n"' + (color ? ' style="color:' + color + '"' : '') +
+    '>' + n + '</div><div class="l">' + l + '</div></div>';
+}
+
+/* one horizontal bar: label, value, track, optional 85% marker */
+function hbar(label, p, valueText, opts){
+  opts = opts || {};
+  return '<div class="hrow' + (opts.click ? " click" : "") + '"' +
+      (opts.key ? ' data-key="' + esc(opts.key) + '"' : "") +
+      (opts.tip ? ' data-tip="' + esc(opts.tip) + '"' : "") + '>' +
+    '<div class="hlab"><span>' + label + '</span><span class="v">' + valueText + '</span></div>' +
+    '<div class="track"><b style="width:' + Math.max(0, Math.min(100, p)) + '%"></b>' +
+      (opts.marker ? '<u style="left:' + opts.marker + '%"></u>' : "") + '</div></div>';
+}
+
+function tableToggle(host, buildTable){
+  const btn = document.createElement("button");
+  btn.className = "tvbtn"; btn.textContent = "Table view";
+  let open = false, tbl = null;
+  btn.addEventListener("click", () => {
+    open = !open;
+    btn.textContent = open ? "Hide table" : "Table view";
+    if(open){ tbl = document.createElement("div"); tbl.innerHTML = buildTable(); host.appendChild(tbl); }
+    else if(tbl){ tbl.remove(); tbl = null; }
+  });
+  host.appendChild(btn);
+}
+
+function domainRows(){
+  return DOMAINS.map(d => {
+    let a = 0, c = 0;
+    Object.entries(S.topics).forEach(([k,v]) => {
+      if(k.startsWith(d + " :: ")){ a += v.attempts; c += v.correct; }
+    });
+    return {d, a, c, acc: a ? c/a : null, weight: DW[d],
+            qs: BANK.filter(q => q.domain === d).length};
+  });
+}
+
+function renderDomainChart(){
+  const host = document.getElementById("domChart");
+  const rows = domainRows();
+  if(!BANK.length){ host.innerHTML = emptyBank(); return; }
+  host.innerHTML = rows.map(r => hbar(
+    esc(shortDomain(r.d)) + ' <span class="muted small">[' + Math.round(r.weight*100) + '%]</span>',
+    r.acc === null ? 0 : r.acc*100,
+    r.a ? Math.round(r.acc*100) + "% · " + r.c + "/" + r.a : "not attempted",
+    {marker:85, tip: r.d + "|" + (r.a ? Math.round(r.acc*100) + "% correct (" + r.c + "/" + r.a + " answered)"
+                                      : "not attempted yet") + "|" + r.qs + " questions in bank"}
+  )).join("");
+  host.querySelectorAll("[data-tip]").forEach(el => {
+    const [t,a,b] = el.dataset.tip.split("|");
+    el.addEventListener("mousemove", ev => showTip('<b>' + esc(t) + '</b><span>' + esc(a) + '<br>' + esc(b) + '</span>', ev));
+    el.addEventListener("mouseleave", hideTip);
+  });
+  tableToggle(host, () =>
+    '<table class="tv"><thead><tr><th>Domain</th><th>Exam weight</th><th>Accuracy</th>' +
+    '<th>Answered</th><th>Bank</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.d) + '</td><td class="n">' + Math.round(r.weight*100) + '%</td>' +
+      '<td class="n">' + (r.a ? Math.round(r.acc*100) + '%' : '—') + '</td>' +
+      '<td class="n">' + r.c + '/' + r.a + '</td><td class="n">' + r.qs + '</td></tr>').join("") +
+    '</tbody></table>');
+}
+
+function renderMasteryChart(){
+  const host = document.getElementById("masteryChart");
+  if(!TOPICS.length){ host.innerHTML = emptyBank(); return; }
+  const order = [
+    {label:"mastered",      color:"var(--good)"},
+    {label:"getting there", color:"var(--warn)"},
+    {label:"needs work",    color:"var(--crit)"},
+    {label:"not started",   color:"var(--inkmute)"}
+  ];
+  const withQs = TOPICS.filter(t => t.ids.length);
+  const counts = {}; order.forEach(o => counts[o.label] = 0);
+  withQs.forEach(t => counts[subjectStatus(t).label]++);
+  const total = withQs.length;
+  const cov = TOPICS.length ? withQs.length / TOPICS.length : 0;
+
+  host.innerHTML =
+    (total
+      ? '<div class="stack">' + order.filter(o => counts[o.label] > 0).map(o =>
+          '<i style="width:' + (counts[o.label]/total*100) + '%;background:' + o.color + '"></i>').join("") +
+        '</div><div class="legend">' + order.map(o =>
+          '<span><i style="background:' + o.color + '"></i>' + o.label + ' · ' + counts[o.label] + '</span>').join("") +
+        '</div>'
+      : '<p class="empty">No subject has questions yet on this path.</p>') +
+    '<div style="margin-top:18px">' +
+      hbar("Syllabus coverage", cov*100,
+           withQs.length + " of " + TOPICS.length + " subjects have questions") +
+    '</div>';
+  tableToggle(host, () =>
+    '<table class="tv"><thead><tr><th>State</th><th>Subjects</th><th>Share</th></tr></thead><tbody>' +
+    order.map(o => '<tr><td>' + o.label + '</td><td class="n">' + counts[o.label] + '</td>' +
+      '<td class="n">' + Math.round(counts[o.label]/total*100) + '%</td></tr>').join("") +
+    '</tbody></table>');
+}
+
+function renderScoreChart(){
+  const host = document.getElementById("scoreChart");
+  const h = S.history;
+  const e = CERT.exam;
+  document.getElementById("mockChartSub").textContent =
+    "Scaled score per attempt. The line marks " + e.pass + ", the pass mark.";
+  if(!h.length){
+    host.innerHTML = '<p class="empty">No mock exams taken on this path yet.</p>';
+    return;
+  }
+  if(h.length === 1){
+    const x = h[0];
+    host.innerHTML = '<div class="tiles">' +
+      tile(x.score, "Only attempt", x.passed ? "var(--good)" : "var(--crit)") +
+      tile(x.correct + "/" + x.total, "Correct") +
+      tile(x.passed ? "PASS" : "FAIL", e.pass + " to pass", x.passed ? "var(--good)" : "var(--crit)") +
+      '</div><p class="small muted" style="margin-top:12px">Take another mock and this becomes a trend line.</p>';
+    return;
+  }
+
+  const W = 720, H = 210, L = 42, R = 54, T = 14, B = 26;
+  const lo = e.min, hi = e.max;
+  const px = i => L + (W - L - R) * (i / (h.length - 1));
+  const py = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const pts = h.map((x,i) => [px(i), py(x.score)]);
+  const ticks = [e.min, e.pass, e.max];
+
+  host.innerHTML =
+    '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" ' +
+      'aria-label="Mock exam scaled scores over ' + h.length + ' attempts">' +
+      ticks.map(v => '<line class="grid" x1="' + L + '" x2="' + (W-R) + '" y1="' + py(v) + '" y2="' + py(v) + '"/>').join("") +
+      '<line class="thresh" x1="' + L + '" x2="' + (W-R) + '" y1="' + py(e.pass) + '" y2="' + py(e.pass) + '"/>' +
+      '<text x="' + (W-R+6) + '" y="' + (py(e.pass)+4) + '">pass ' + e.pass + '</text>' +
+      ticks.filter(v => v !== e.pass).map(v =>
+        '<text x="' + (L-8) + '" y="' + (py(v)+4) + '" text-anchor="end">' + v + '</text>').join("") +
+      '<line class="axis" x1="' + L + '" x2="' + L + '" y1="' + T + '" y2="' + (H-B) + '"/>' +
+      '<polyline class="line" points="' + pts.map(p => p.join(",")).join(" ") + '"/>' +
+      pts.map((p,i) => '<circle class="dot" cx="' + p[0] + '" cy="' + p[1] + '" r="4"/>').join("") +
+      '<text class="end" x="' + (pts[pts.length-1][0]) + '" y="' + (pts[pts.length-1][1] - 12) +
+        '" text-anchor="middle">' + h[h.length-1].score + '</text>' +
+      h.map((x,i) => '<text x="' + px(i) + '" y="' + (H-6) + '" text-anchor="middle">' + (i+1) + '</text>').join("") +
+      pts.map((p,i) => '<rect class="hit" data-i="' + i + '" x="' + (p[0]-16) + '" y="' + T +
+        '" width="32" height="' + (H-T-B) + '"/>').join("") +
+    '</svg>';
+
+  host.querySelectorAll(".hit").forEach(el => {
+    const x = h[+el.dataset.i];
+    el.addEventListener("mousemove", ev => showTip(
+      '<b>Attempt ' + (+el.dataset.i + 1) + ' — ' + x.score + '</b><span>' +
+      new Date(x.ts).toLocaleString() + '<br>' + x.correct + '/' + x.total + ' correct · ' +
+      (x.passed ? "pass" : "fail") + '</span>', ev));
+    el.addEventListener("mouseleave", hideTip);
+  });
+  tableToggle(host, () =>
+    '<table class="tv"><thead><tr><th>#</th><th>When</th><th>Score</th><th>Correct</th><th>Result</th></tr></thead><tbody>' +
+    h.map((x,i) => '<tr><td class="n">' + (i+1) + '</td><td>' + new Date(x.ts).toLocaleString() + '</td>' +
+      '<td class="n">' + x.score + '</td><td class="n">' + x.correct + '/' + x.total + '</td>' +
+      '<td>' + (x.passed ? "pass" : "fail") + '</td></tr>').join("") +
+    '</tbody></table>');
+}
+
+function renderWeakChart(){
+  const host = document.getElementById("weakChart");
+  const weak = Object.entries(S.topics)
+    .filter(([,v]) => v.attempts >= 2)
+    .map(([k,v]) => ({k, acc: v.correct/v.attempts, a:v.attempts, c:v.correct}))
+    .sort((x,y) => x.acc - y.acc).slice(0,8);
+  if(!weak.length){
+    host.innerHTML = '<p class="empty">Answer at least two questions in a subject and it will be ranked here.</p>';
+    return;
+  }
+  host.innerHTML = weak.map(w => {
+    const st = statusOf(w.acc, w.a);
+    return hbar(
+      esc(w.k.split(" :: ")[1]) + ' <span class="muted small">' + esc(shortDomain(w.k.split(" :: ")[0])) + '</span>',
+      w.acc*100, Math.round(w.acc*100) + "% · " + w.c + "/" + w.a + " · " + st.label,
+      {click:true, key:w.k, marker:85});
+  }).join("");
+  host.querySelectorAll(".hrow.click").forEach(el =>
+    el.addEventListener("click", () => openSubject({key: el.dataset.key})));
+}
+
+/* --------------------------- path rail --------------------------- */
+
+function pathSummary(id){
+  let a = 0, c = 0, seen = 0;
+  try{
+    const s = JSON.parse(localStorage.getItem(stateKey(id)) || "{}");
+    Object.values(s.questions || {}).forEach(q => { a += q.attempts; c += q.correct; });
+    seen = Object.keys(s.questions || {}).length;
+  }catch(e){}
+  return {a, c, seen, acc: a ? c/a : null, bank: ((window.BANKS || {})[id] || []).length};
+}
+
+function renderPaths(){
+  const host = document.getElementById("pathList");
+  host.innerHTML = CERTS.slice().sort((x,y) => x.order - y.order).map(p => {
+    const col = pathColor(p.id), s = pathSummary(p.id), on = CERT && p.id === CERT.id;
+    return '<button class="path' + (on ? " on" : "") + '" data-cert="' + p.id + '"' +
+        (on ? ' style="border-left-color:' + col + '"' : '') + '>' +
+      '<span class="code" style="color:' + col + '">' + esc(p.id) + '</span>' +
+      '<span class="nm">' + esc(p.name) + '</span>' +
+      '<span class="mini"><b style="width:' + (s.acc === null ? 0 : Math.round(s.acc*100)) +
+        '%;background:' + col + '"></b></span>' +
+      '<span class="pcs"><span>' +
+        (s.a ? Math.round(s.acc*100) + "% · " + s.a + " answered" : "not started") +
+      '</span><span>' + s.bank + 'q</span></span>' +
+    '</button>';
+  }).join("");
+  host.querySelectorAll(".path").forEach(el => el.addEventListener("click", () => {
+    if(el.dataset.cert !== CERT.id) setCert(el.dataset.cert);
+  }));
+}
+
+/* ------------------------------ dashboard ------------------------------ */
+
+function refreshDashboard(){
+  renderPaths();
+  updateMissBadge();
+
+  let attempts = 0, correct = 0;
+  Object.values(S.questions).forEach(q => { attempts += q.attempts; correct += q.correct; });
+  const overall = pct(correct, attempts);
+  const seen = Object.keys(S.questions).length;
+  const best = S.history.reduce((m,x) => Math.max(m, x.score), 0);
+
+  document.getElementById("heroFig").innerHTML =
+    overall === null ? "—" : Math.round(overall*100) + '<small>%</small>';
+  const st = overall === null ? {label:"no data yet", color:"var(--inkmute)"}
+           : overall >= READY ? {label:"ready to book", color:"var(--good)"}
+           : overall >= 0.70  ? {label:"closing in",    color:"var(--warn)"}
+           :                    {label:"building",      color:"var(--crit)"};
+  document.getElementById("heroChip").innerHTML =
+    '<span class="chip" style="color:' + st.color + '"><i></i>' + st.label + '</span>';
+  document.getElementById("heroLabel").textContent = "Overall accuracy on " + CERT.id;
+  document.getElementById("heroTarget").textContent = "target " + Math.round(READY*100) + "%";
+  document.getElementById("heroBar").style.width = (overall === null ? 0 : overall*100) + "%";
+  document.getElementById("heroMark").style.left = (READY*100) + "%";
+  document.getElementById("heroNote").textContent =
+    overall === null ? "Answer some questions and this fills in."
+    : overall >= READY ? "Consistently at or above 85%. Confirm with a full mock, then book."
+    : "The practice stream and subject sessions are already weighting toward your weak spots.";
+
+  document.getElementById("heroTiles").innerHTML =
+    tile(attempts, "Questions answered") +
+    tile(seen + " / " + BANK.length, "Bank coverage") +
+    tile(S.missed.length, "In missed queue") +
+    tile(best || "—", "Best mock score");
+
+  renderDomainChart(); renderMasteryChart(); renderScoreChart(); renderWeakChart();
+
+  document.getElementById("bankStats").innerHTML = CERTS.map(c => {
+    const bank = ((window.BANKS || {})[c.id] || []).concat(loadAdded(c.id));
+    const syllabus = c.domains.reduce((n,d) => n + (d.topics || []).length, 0);
+    const covered = new Set(bank.map(q => q.domain + " :: " + q.topic)).size;
+    let a = 0, cc = 0;
+    try{
+      const s = JSON.parse(localStorage.getItem(stateKey(c.id)) || "{}");
+      Object.values(s.questions || {}).forEach(q => { a += q.attempts; cc += q.correct; });
+    }catch(e){}
+    return '<div class="row"><span>' + (c.id === CERT.id ? "▸ " : "") + esc(c.id) + ' <span class="muted small">' +
+      esc(c.name) + '</span></span><span class="muted">' + bank.length + ' questions · ' +
+      covered + '/' + syllabus + ' subjects · ' +
+      (a ? Math.round(cc/a*100) + "% over " + a + " answers" : "no attempts") + '</span></div>';
+  }).join("");
+}
+
+/* ======================= pasted questions =======================
+ * A tolerant parser for question text pasted from notes, PDFs or practice
+ * material. It extracts the stem, lettered options, the answer letters and an
+ * explanation where present, then hands back drafts that must be assigned a
+ * syllabus subject before they are added. Added questions live in localStorage
+ * per path and are mixed into the bank, so they take part in the adaptive
+ * engine, drills and mocks like any other question.
+ * ================================================================ */
+
+const addedKey = id => "trainer_v2::added::" + id;
+
+function loadAdded(id){
+  try{
+    const raw = localStorage.getItem(addedKey(id));
+    const a = raw ? JSON.parse(raw) : [];
+    return Array.isArray(a) ? a : [];
+  }catch(e){ return []; }
+}
+function saveAdded(id, arr){
+  try{ localStorage.setItem(addedKey(id), JSON.stringify(arr)); }catch(e){}
+}
+
+const OPT_RE    = /^\s*\(?([A-H])[\.\)\-:]\s+(.+?)\s*$/;
+const ANS_RE    = /^\s*(?:correct\s*)?(?:answers?|ans|key)\s*(?:is)?\s*[:\-–]?\s*([A-H](?:\s*(?:,|and|&|\/|\s)\s*[A-H])*)\s*\.?\s*$/i;
+const EXPL_RE   = /^\s*(?:explanation|rationale|why|reason)\s*[:\-–]\s*(.*)$/i;
+const QNUM_RE   = /^\s*(?:q(?:uestion)?\s*)?(\d{1,3})\s*[\.\)\:]\s*(.*)$/i;
+// Lines that are just a heading in the source material, e.g. a bare "Question".
+const NOISE_RE  = /^\s*(?:\d{1,3}\s*[\.\)\:]\s*)?(?:q(?:uestion)?|options?|answers?|choices?)\s*[:\.]?\s*$/i;
+const BULLET_RE = /^\s*(?:[-*•·–—o]|\[\s*\]|\(\s*\)|[▢□○☐])\s+/;
+const SELECT_RE = /\(?\s*(?:select|choose|pick)\s+(two|three|four|2|3|4)\s*\.?\s*\)?/i;
+const WORD_N    = {two:2, three:3, four:4, "2":2, "3":3, "4":4};
+
+/* Many sources list options as plain lines with no letters. Recover them:
+ * prefer a blank-line split between stem and options; otherwise take the run of
+ * trailing short lines that do not read as prose. */
+function extractUnlettered(body){
+  const lines = body.map(l => l.replace(BULLET_RE, "").trim());
+  const paras = []; let cur = [];
+  lines.forEach(l => { if(!l){ if(cur.length){ paras.push(cur); cur = []; } } else cur.push(l); });
+  if(cur.length) paras.push(cur);
+  if(!paras.length) return null;
+
+  let stem, opts;
+  if(paras.length >= 2){
+    stem = paras[0].join(" ");
+    opts = paras.slice(1).reduce((a,p) => a.concat(p), []);
+  }else{
+    // one paragraph: peel trailing option-looking lines off the end
+    const one = paras[0];
+    let i = one.length;
+    while(i > 1){
+      const l = one[i-1];
+      if(l.length <= 160 && !/[?:]$/.test(l)) i--; else break;
+    }
+    if(one.length - i < 2) return null;
+    stem = one.slice(0, i).join(" ");
+    opts = one.slice(i);
+  }
+
+  opts = opts.filter(o => o && o.length <= 300);
+  if(opts.length < 2 || opts.length > 8 || !stem) return null;
+  return {
+    stem,
+    options: opts.map((t,i) => ({id: "ABCDEFGH"[i], text: t}))
+  };
+}
+
+function expectedCount(text){
+  const m = String(text).match(SELECT_RE);
+  return m ? (WORD_N[m[1].toLowerCase()] || null) : null;
+}
+
+function parsePasted(text){
+  const lines = String(text).replace(/\r/g, "").split("\n");
+
+  // Break into blocks: a numbered line starts a new one, and so does a
+  // non-option line that follows a completed question.
+  const blocks = []; let cur = null, sawOpt = false, sawAns = false;
+  const push = () => { if(cur && cur.length) blocks.push(cur); cur = null; sawOpt = false; sawAns = false; };
+
+  lines.forEach(raw => {
+    const line = raw.trimEnd();
+    const isOpt = OPT_RE.test(line), isAns = ANS_RE.test(line), isNum = QNUM_RE.test(line);
+    if(!line.trim()){ if(sawAns) push(); else if(cur) cur.push(""); return; }
+    if(isNum && !isOpt && (sawAns || sawOpt || !cur)) push();
+    if(!cur) cur = [];
+    if(isOpt) sawOpt = true;
+    if(isAns) sawAns = true;
+    cur.push(line);
+  });
+  push();
+
+  return blocks.map(block => {
+    const clean = block.filter(l => !NOISE_RE.test(l));
+    const stem = [], options = [], correct = [], body = [];
+    let explanation = "", inExpl = false;
+
+    clean.forEach(line => {
+      const om = line.match(OPT_RE), am = line.match(ANS_RE), em = line.match(EXPL_RE);
+      if(em){ inExpl = true; explanation = em[1].trim(); return; }
+      if(am){ (am[1].match(/[A-H]/gi) || []).forEach(L => {
+                const u = L.toUpperCase(); if(!correct.includes(u)) correct.push(u); });
+              inExpl = false; return; }
+      if(om){ options.push({id: om[1].toUpperCase(), text: om[2].trim()}); inExpl = false; return; }
+      if(inExpl){ explanation += (explanation ? " " : "") + line.trim(); return; }
+      const nm = line.match(QNUM_RE);
+      const text = (nm && !stem.length && !body.length) ? nm[2] : line.trim();
+      body.push(text);
+      if(!options.length) stem.push(text);
+    });
+
+    let question = stem.join(" ").replace(/\s+/g, " ").trim();
+    let opts = options;
+
+    // No lettered options found — recover plain-line options.
+    if(opts.length < 2){
+      const un = extractUnlettered(body);
+      if(un){ question = un.stem.replace(/\s+/g, " ").trim(); opts = un.options; }
+    }
+
+    const optIds = opts.map(o => o.id);
+    return {
+      question,
+      options: opts,
+      correct: correct.filter(c => optIds.includes(c)),
+      explanation: explanation.trim(),
+      expect: expectedCount(question),
+      domain: "", topic: "", difficulty: "medium"
+    };
+  }).filter(dq => dq.question && dq.options.length >= 2);
+}
+
+function draftProblems(dq){
+  const p = [];
+  if(!dq.correct.length){
+    p.push(dq.expect ? "tick the " + dq.expect + " correct options"
+                     : "no answer in the source — tick the correct option(s)");
+  }else if(dq.expect && dq.correct.length !== dq.expect){
+    p.push("the question asks for " + dq.expect + " answers, " + dq.correct.length + " ticked");
+  }
+  if(!dq.domain) p.push("pick a domain");
+  if(!dq.topic) p.push("pick a subject");
+  if(dq.options.length < 3) p.push("fewer than 3 options");
+  return p;
+}
+
+let drafts = [];
+
+function renderDrafts(){
+  const host = document.getElementById("pastePreview");
+  if(!drafts.length){ host.innerHTML = ""; return; }
+  const domOpts = sel =>
+    '<option value="">domain…</option>' + DOMAINS.map(d =>
+      '<option value="' + esc(d) + '"' + (sel === d ? " selected" : "") + '>' +
+      esc(shortDomain(d)) + '</option>').join("");
+  const topOpts = (dom, sel) => {
+    const cd = CERT.domains.find(x => x.name === dom);
+    return '<option value="">subject…</option>' + ((cd && cd.topics) || []).map(t =>
+      '<option value="' + esc(t) + '"' + (sel === t ? " selected" : "") + '>' + esc(t) + '</option>').join("");
+  };
+
+  host.innerHTML =
+    '<div class="row" style="margin-top:18px"><strong>' + drafts.length + ' draft' +
+      (drafts.length>1?'s':'') + ' parsed</strong>' +
+      '<span class="muted small">assign a subject to each, then add</span></div>' +
+    drafts.map((dq,i) => {
+      const probs = draftProblems(dq);
+      return '<div class="draft' + (probs.length ? " bad" : "") + '" data-i="' + i + '">' +
+        (dq.expect ? '<span class="tag d-medium" style="margin-bottom:8px;display:inline-block">' +
+          'select ' + dq.expect + '</span>' : '') +
+        '<div class="qt">' + esc(dq.question.slice(0,400)) + (dq.question.length>400?"…":"") + '</div>' +
+        '<ol type="A">' + dq.options.map(o =>
+          '<li class="' + (dq.correct.includes(o.id) ? "ans" : "") + '">' + esc(o.text) + '</li>').join("") + '</ol>' +
+        (dq.explanation ? '<div class="small muted">' + esc(dq.explanation.slice(0,300)) + '</div>' : '') +
+        '<div class="frow">' +
+          '<span class="letters">' + dq.options.map(o =>
+            '<label><input type="checkbox" data-letter="' + o.id + '"' +
+              (dq.correct.includes(o.id) ? " checked" : "") + '>' + o.id + '</label>').join("") + '</span>' +
+          '<select data-f="domain">' + domOpts(dq.domain) + '</select>' +
+          '<select data-f="topic">' + topOpts(dq.domain, dq.topic) + '</select>' +
+          '<select data-f="difficulty">' + ["easy","medium","hard"].map(x =>
+            '<option value="' + x + '"' + (dq.difficulty === x ? " selected" : "") + '>' + x + '</option>').join("") + '</select>' +
+          '<button class="ghost" data-drop style="margin-left:auto;padding:6px 12px">Remove</button>' +
+        '</div>' +
+        (probs.length ? '<div class="warnline">' + esc(probs.join(" · ")) + '</div>' : '') +
+      '</div>';
+    }).join("") +
+    '<div class="actions">' +
+      '<button class="act" id="draftAdd">Add ready drafts to ' + esc(CERT.id) + '</button>' +
+      '<button class="ghost" id="draftAll">Set all to first draft\'s subject</button>' +
+    '</div>';
+
+  host.querySelectorAll(".draft").forEach(el => {
+    const i = +el.dataset.i;
+    el.querySelectorAll("[data-letter]").forEach(cb => cb.addEventListener("change", () => {
+      const L = cb.dataset.letter;
+      if(cb.checked){ if(!drafts[i].correct.includes(L)) drafts[i].correct.push(L); }
+      else drafts[i].correct = drafts[i].correct.filter(x => x !== L);
+      renderDrafts();
+    }));
+    el.querySelectorAll("[data-f]").forEach(sl => sl.addEventListener("change", () => {
+      const f = sl.dataset.f;
+      drafts[i][f] = sl.value;
+      if(f === "domain") drafts[i].topic = "";
+      renderDrafts();
+    }));
+    el.querySelector("[data-drop]").addEventListener("click", () => {
+      drafts.splice(i,1); renderDrafts();
+    });
+  });
+
+  const addBtn = document.getElementById("draftAdd");
+  if(addBtn) addBtn.addEventListener("click", commitDrafts);
+  const allBtn = document.getElementById("draftAll");
+  if(allBtn) allBtn.addEventListener("click", () => {
+    const first = drafts.find(x => x.domain && x.topic);
+    if(!first){ pasteMsg("Set the domain and subject on one draft first.", false); return; }
+    drafts.forEach(x => { x.domain = first.domain; x.topic = first.topic; });
+    renderDrafts();
+  });
+}
+
+function pasteMsg(t, ok){
+  const el = document.getElementById("pasteMsg");
+  el.textContent = t; el.style.color = ok === false ? "var(--warn)" : "var(--dim)";
+}
+
+function commitDrafts(){
+  const ready = drafts.filter(dq => !draftProblems(dq).length);
+  if(!ready.length){ pasteMsg("No draft is ready yet — each needs an answer and a subject.", false); return; }
+  const added = loadAdded(CERT.id);
+  let n = added.length;
+  ready.forEach(dq => {
+    const cd = CERT.domains.find(x => x.name === dq.domain);
+    added.push({
+      id: (cd ? cd.prefix : "add") + "-p" + (++n),
+      domain: dq.domain, topic: dq.topic, difficulty: dq.difficulty,
+      type: dq.correct.length > 1 ? "multi" : "single",
+      question: dq.question, options: dq.options, correct: dq.correct.slice(),
+      explanation: dq.explanation || "Added from pasted material — explanation not supplied.",
+      whyWrong: {}, pasted: true
+    });
+  });
+  saveAdded(CERT.id, added);
+  drafts = drafts.filter(dq => draftProblems(dq).length);
+  renderDrafts(); renderAdded();
+  pasteMsg("Added " + ready.length + " question" + (ready.length>1?"s":"") + " to " + CERT.id + ".", true);
+  setCert(CERT.id);
+}
+
+function renderAdded(){
+  const host = document.getElementById("addedList");
+  const added = loadAdded(CERT.id);
+  if(!added.length){
+    host.innerHTML = '<p class="empty">Nothing pasted for ' + esc(CERT.id) + ' yet.</p>';
+    return;
+  }
+  host.innerHTML =
+    added.map((q,i) => '<div class="row"><span>' + esc(q.question.slice(0,90)) +
+      (q.question.length>90?"…":"") + ' <span class="muted small">' + esc(q.topic) + '</span></span>' +
+      '<span><span class="muted small">' + esc(q.id) + '</span> ' +
+      '<button class="ghost" data-del="' + i + '" style="padding:4px 10px;margin-left:8px">Delete</button></span></div>').join("") +
+    '<div class="actions">' +
+      '<button class="ghost" id="addedCopy">Show all as JSON (to hand back for rewriting)</button>' +
+      '<button class="ghost" id="addedClear">Delete all ' + added.length + '</button>' +
+    '</div><div id="addedJson"></div>';
+
+  host.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => {
+    const a = loadAdded(CERT.id); a.splice(+b.dataset.del, 1);
+    saveAdded(CERT.id, a); renderAdded(); setCert(CERT.id);
+  }));
+  document.getElementById("addedClear").addEventListener("click", () => {
+    if(!confirm("Delete all pasted questions for " + CERT.id + "?")) return;
+    saveAdded(CERT.id, []); renderAdded(); setCert(CERT.id);
+  });
+  document.getElementById("addedCopy").addEventListener("click", () => {
+    const box = document.getElementById("addedJson");
+    box.innerHTML = '<textarea rows="10" readonly id="addedJsonBox"></textarea>' +
+      '<p class="small muted">Select all and copy, then paste into chat to have these rewritten ' +
+      'as original scenarios with full explanations.</p>';
+    const ta = document.getElementById("addedJsonBox");
+    ta.value = JSON.stringify(loadAdded(CERT.id), null, 2);
+    ta.focus(); ta.select();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).catch(() => {});
+    }
+  });
+}
+
+/* ------------------------------ data I/O ------------------------------ */
+
+function msg(t, ok){
+  const el = document.getElementById("dataMsg");
+  el.textContent = t; el.style.color = ok ? "var(--good)" : "var(--crit)";
+}
+
+document.getElementById("btnExport").addEventListener("click", () => {
+  const bundle = {v:3, exported: new Date().toISOString(), certs:{}, added:{}};
+  CERTS.forEach(c => {
+    try{
+      const raw = localStorage.getItem(stateKey(c.id));
+      if(raw) bundle.certs[c.id] = JSON.parse(raw);
+    }catch(e){}
+    const a = loadAdded(c.id);
+    if(a.length) bundle.added[c.id] = a;          // pasted questions travel with progress
+  });
+  const blob = new Blob([JSON.stringify(bundle,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "aws-trainer-progress.json";
+  a.click(); URL.revokeObjectURL(a.href);
+  msg("Exported " + Object.keys(bundle.certs).length + " path(s).", true);
+});
+
+document.getElementById("btnImport").addEventListener("click", () =>
+  document.getElementById("fileImport").click());
+
+document.getElementById("fileImport").addEventListener("change", ev => {
+  const f = ev.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const s = JSON.parse(rd.result);
+      let n = 0;
+      if(s && s.certs){                       // v2 / v3 bundle
+        Object.entries(s.certs).forEach(([id,st]) => {
+          if(CERTS.some(c => c.id === id)){ localStorage.setItem(stateKey(id), JSON.stringify(st)); n++; }
+        });
+        Object.entries(s.added || {}).forEach(([id,arr]) => {
+          if(CERTS.some(c => c.id === id) && Array.isArray(arr)) saveAdded(id, arr);
+        });
+      }else if(s && s.questions){             // legacy single-path export
+        localStorage.setItem(stateKey("SAA-C03"), JSON.stringify(s)); n = 1;
+      }else throw new Error("not a progress file");
+      setCert(CERT.id);
+      msg("Imported " + n + " path(s).", true);
+    }catch(err){ msg("Import failed: " + err.message, false); }
+  };
+  rd.readAsText(f);
+  ev.target.value = "";
+});
+
+document.getElementById("btnReset").addEventListener("click", () => {
+  if(!confirm("Erase progress for " + CERT.id + " only? Other paths are untouched. Export first if you want a backup.")) return;
+  S = blank(); save(); setCert(CERT.id); msg("Progress reset for " + CERT.id + ".", true);
+});
+
+/* ------------------------------ wiring ------------------------------ */
+
+function showView(v){
+  document.querySelectorAll(".navi").forEach(x => x.classList.toggle("active", x.dataset.view === v));
+  document.querySelectorAll(".view").forEach(x => x.classList.toggle("active", x.id === v));
+  document.getElementById("viewTitle").textContent = VIEW_TITLE[v] || v;
+  if(v === "dashboard") refreshDashboard();
+  if(v === "review") showReview();
+  if(v === "practice" && !document.querySelector("#practiceHost .qtext")) nextPractice();
+  if(v === "topics" && !session){ renderSidebar(); renderWorkHome(); }
+}
+document.querySelectorAll(".navi").forEach(b =>
+  b.addEventListener("click", () => showView(b.dataset.view)));
+
+document.getElementById("topicSearch").addEventListener("input", e => {
+  topicView.q = e.target.value; renderSidebar();
+});
+document.getElementById("topicWeakOnly").addEventListener("change", e => {
+  topicView.weakOnly = e.target.checked; renderSidebar();
+});
+
+document.getElementById("pasteParse").addEventListener("click", () => {
+  const text = document.getElementById("pasteBox").value;
+  if(!text.trim()){ pasteMsg("Paste something first.", false); return; }
+  drafts = parsePasted(text);
+  renderDrafts();
+  pasteMsg(drafts.length
+    ? "Parsed " + drafts.length + " question" + (drafts.length>1?"s":"") + "."
+    : "No options found. Put each option on its own line, with a blank line after the question.",
+    !!drafts.length);
+});
+document.getElementById("pasteClear").addEventListener("click", () => {
+  document.getElementById("pasteBox").value = "";
+  drafts = []; renderDrafts(); pasteMsg("");
+});
+
+document.getElementById("mockStart").addEventListener("click", startMock);
+document.getElementById("mockPrev").addEventListener("click", () => { mock.i--; showMock(); });
+document.getElementById("mockNext").addEventListener("click", () => { mock.i++; showMock(); });
+document.getElementById("mockFlag").addEventListener("click", () => {
+  const id = mock.set[mock.i].id;
+  mock.flags.has(id) ? mock.flags.delete(id) : mock.flags.add(id);
+  showMock();
+});
+document.getElementById("mockSubmit").addEventListener("click", () => {
+  const un = mock.set.filter(q => !(mock.answers[q.id]||[]).length).length;
+  if(confirm((un ? un + " question(s) are unanswered. " : "") + "Submit the exam now?")) submitMock();
+});
+
+let startId = CERTS[0].id;
+try{ const a = localStorage.getItem(ACTIVE_KEY); if(a && CERTS.some(c => c.id === a)) startId = a; }catch(e){}
+setCert(startId);
+</script>
+</body>
+</html>

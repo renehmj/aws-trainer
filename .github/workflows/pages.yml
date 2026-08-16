@@ -1,0 +1,52 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deployments race; always ship the newest commit.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A broken bank must never reach the published site.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate question banks
+        run: node tests/validate-bank.js
+
+      # The app is static, so "build" is just selecting what to publish.
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html certs.js bank-*.js manifest.json icon-*.png _site/
+          cp README.md _site/ 2>/dev/null || true
+          touch _site/.nojekyll
+          ls -la _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

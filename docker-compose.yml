@@ -1,0 +1,18 @@
+# Day-to-day use: the project directory is mounted, so editing questions.js and
+# refreshing the browser is enough — no rebuild, no restart.
+#
+# The whole directory is mounted rather than individual files on purpose. A
+# single-file bind mount is pinned to that file's inode, so any editor that saves
+# by writing a temp file and renaming it (VS Code does this in several setups)
+# leaves the container serving the original file forever. nginx.conf blocks the
+# non-app files that mounting the directory would otherwise expose.
+services:
+  saa-trainer:
+    image: nginx:alpine
+    container_name: saa-trainer
+    ports:
+      - "8080:80"          # http://<this-machine-ip>:8080 from anywhere on the LAN
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

@@ -1,0 +1,13 @@
+# test dependencies
+node_modules/
+package-lock.json
+
+# never commit purchased or third-party study material
+inbox/
+*.docx
+*.pdf
+
+# local scratch
+_site/
+.DS_Store
+*.log

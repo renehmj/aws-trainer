@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Fastest signal first: catches typo'd topic strings, duplicate ids, broken
+      # answer keys and blueprint drift without needing a browser or a server.
+      - name: Validate question banks
+        run: node tests/validate-bank.js
+
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund
+
+      # The suites drive the real page, so serve the files exactly as they ship.
+      - name: Serve the app
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/ >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/ >/dev/null || { echo "server did not start"; exit 1; }
+
+      - name: UI suite
+        run: node tests/ui.test.js
+        env:
+          BASE_URL: http://127.0.0.1:8080
+
+      - name: Adaptive engine suite
+        run: node tests/engine.test.js
+        env:
+          BASE_URL: http://127.0.0.1:8080

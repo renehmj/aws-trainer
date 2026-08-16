@@ -1,0 +1,17 @@
+{
+  "name": "aws-certification-trainer",
+  "version": "1.0.0",
+  "description": "Adaptive practice trainer for the AWS SAA-C03, DVA-C02, SAP-C02 and DOP-C02 exams. No backend, no build step.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "validate": "node tests/validate-bank.js",
+    "serve": "python3 -m http.server 8080",
+    "test:ui": "node tests/ui.test.js",
+    "test:engine": "node tests/engine.test.js",
+    "test": "npm run validate && npm run test:ui && npm run test:engine"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0"
+  }
+}
