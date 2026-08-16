@@ -3,12 +3,15 @@
  * DOM/localStorage stubs, and samples the genuine pickWeighted(). */
 
 const http = require('http');
+const https = require('https');
 const vm = require('vm');
 /* Base URL is configurable so the same suite runs against the local Docker
  * container or a throwaway server in CI. */
 const BASE = process.env.BASE_URL || 'http://localhost:8080';
 
-const get = url => new Promise((res, rej) => http.get(url, r => {
+// The suite runs against both the local container (http) and the published
+// GitHub Pages site (https), so pick the client from the URL scheme.
+const get = url => new Promise((res, rej) => (url.startsWith('https:') ? https : http).get(url, r => {
   let b = ''; r.on('data', c => b += c); r.on('end', () => res(b));
 }).on('error', rej));
 
