@@ -3654,6 +3654,689 @@ window.BANKS["SAA-C03"] = [
       C: "Cost Explorer is for analysis after the fact and does not alert.",
       D: "An EstimatedCharges alarm fires on a fixed dollar threshold and cannot distinguish an anomaly from ordinary growth."
     }
+  },
+
+  /* ==========================================================
+   * Batch 7 — concepts that recur across the practice material:
+   * Aurora endpoints and global databases, Object Lock modes,
+   * signed cookies, KMS custom key stores, Redis AUTH, Artifact,
+   * SAML federation, scaling policy selection and migration.
+   * ========================================================== */
+
+  {
+    id: "sec-051",
+    domain: "Design Secure Architectures",
+    topic: "S3 access controls and Block Public Access",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "Clinical trial records must be stored in S3 so that no object can be overwritten or deleted for one year — including by the account's root user. Which configuration meets this?",
+    options: [
+      { id: "A", text: "S3 Object Lock in compliance mode with a one-year retention period." },
+      { id: "B", text: "S3 Object Lock in governance mode with a one-year retention period." },
+      { id: "C", text: "S3 Object Lock in compliance mode with a one-year legal hold." },
+      { id: "D", text: "S3 Versioning with MFA Delete enabled on the bucket." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Compliance mode is the only Object Lock mode that no one can override — not an administrator, not the root user. The retention period cannot be shortened and the mode cannot be changed for the duration, which is exactly what \"including the root user\" requires.",
+    whyWrong: {
+      B: "Governance mode can be bypassed by a principal holding s3:BypassGovernanceRetention, and the root user has it. It is for testing retention settings or protecting against accidents, not regulators.",
+      C: "A legal hold has no duration — you cannot set it for one year. It stays until someone with permission removes it, so it neither expires nor satisfies a fixed one-year requirement.",
+      D: "MFA Delete raises the bar for deletion but does not make objects immutable, and someone with the MFA device can still delete."
+    }
+  },
+
+  {
+    id: "sec-052",
+    domain: "Design Secure Architectures",
+    topic: "KMS key policies and grants",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A regulated business must encrypt data at rest with keys whose material it controls entirely, must be able to remove the key material from AWS KMS immediately, and must audit key usage independently of AWS CloudTrail. Which option meets all three?",
+    options: [
+      { id: "A", text: "Create a KMS key in a custom key store backed by an AWS CloudHSM cluster." },
+      { id: "B", text: "Create a customer managed KMS key with automatic annual rotation enabled." },
+      { id: "C", text: "Use an AWS managed key and store a copy of the material in AWS CloudHSM." },
+      { id: "D", text: "Create a KMS key in a custom key store and hold the key material in Amazon S3." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A custom key store backs KMS with a CloudHSM cluster you own. The key material is generated and stays in your HSMs, you can disconnect the store to make it immediately unusable, and because the HSMs are yours, CloudHSM audit logs give you key-usage auditing independent of CloudTrail.",
+    whyWrong: {
+      B: "A standard customer managed key is stored in KMS's own HSMs. You control policy and rotation, but not the hardware, and auditing is through CloudTrail only.",
+      C: "AWS managed keys are controlled by AWS, and their material cannot be exported to or held in CloudHSM.",
+      D: "Key material is never stored in S3 — a custom key store is backed by CloudHSM, and putting key material in object storage would defeat the point."
+    }
+  },
+
+  {
+    id: "sec-053",
+    domain: "Design Secure Architectures",
+    topic: "S3 encryption options",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A medical system must store records in S3 under a rule that neither the master key nor any unencrypted data may ever be transmitted to AWS. Which encryption approach satisfies this?",
+    options: [
+      { id: "A", text: "Client-side encryption using a client-side master key that never leaves the application." },
+      { id: "B", text: "Client-side encryption using an AWS KMS key." },
+      { id: "C", text: "Server-side encryption with a customer-provided key (SSE-C)." },
+      { id: "D", text: "Server-side encryption with an AWS KMS key (SSE-KMS)." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Only client-side encryption with a client-side master key keeps both conditions. The data is encrypted before it leaves the application, so AWS never sees plaintext, and the master key is held entirely by the client, so it is never sent either.",
+    whyWrong: {
+      B: "Client-side encryption with a KMS key keeps plaintext data local, but the key identifier is sent to KMS and the key lives in AWS — the master key requirement fails.",
+      C: "With SSE-C you transmit the key with every request, and S3 performs the encryption, meaning plaintext reaches AWS too.",
+      D: "SSE-KMS sends plaintext to S3 for encryption and the key is managed by AWS, failing both conditions."
+    }
+  },
+
+  {
+    id: "sec-054",
+    domain: "Design Secure Architectures",
+    topic: "Identity federation and IAM Identity Center",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Architects at a pharmaceutical company must access AWS resources using their existing on-premises Active Directory credentials. The identity provider supports SAML 2.0, and creating IAM users per person is unacceptable. What should be configured?",
+    options: [
+      { id: "A", text: "SAML 2.0-based federation with Active Directory Federation Services as the identity provider." },
+      { id: "B", text: "Web identity federation with a public provider such as Google or Facebook." },
+      { id: "C", text: "IAM users mirroring the Active Directory account list." },
+      { id: "D", text: "An Amazon Cognito identity pool federated to the directory." }
+    ],
+    correct: ["A"],
+    explanation:
+      "AD FS speaks SAML 2.0, and AWS supports SAML federation directly: users authenticate against the corporate directory and receive temporary credentials for an IAM role. No IAM users are created and the directory stays the source of truth.",
+    whyWrong: {
+      B: "Web identity federation is for public consumer identity providers, not a corporate Active Directory.",
+      C: "This creates the per-person IAM users the requirement forbids, plus a second credential store to synchronise.",
+      D: "Cognito serves application end users; workforce console and CLI access goes through SAML federation or Identity Center."
+    }
+  },
+
+  {
+    id: "sec-055",
+    domain: "Design Secure Architectures",
+    topic: "Secrets management and rotation",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A Lambda function holds database and third-party API credentials in environment variables. Other developers with console access must not be able to read them in plain text. What provides the strongest protection?",
+    options: [
+      { id: "A", text: "Create a customer managed KMS key and use the console's encryption helpers to encrypt the variables with it." },
+      { id: "B", text: "Nothing — Lambda already encrypts environment variables at rest by default." },
+      { id: "C", text: "Enable TLS on the function's outbound connections." },
+      { id: "D", text: "Move the function to an EC2 instance and store the values in a local configuration file." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Lambda encrypts environment variables at rest with a default key, but anyone with console access to the function still sees the decrypted values. Encrypting with your own KMS key through the encryption helpers means the console shows ciphertext, and only principals granted Decrypt on that key can read them.",
+    whyWrong: {
+      B: "The default encryption protects the data at rest but not from colleagues viewing the function configuration — which is precisely the stated threat.",
+      C: "TLS protects credentials in transit and does nothing about who can read them in the console.",
+      D: "A file on an instance is readable by anyone with access to the instance and abandons the serverless model."
+    }
+  },
+
+  {
+    id: "sec-056",
+    domain: "Design Secure Architectures",
+    topic: "Auditing with CloudTrail and Config",
+    difficulty: "easy",
+    type: "single",
+    question:
+      "An audit team needs AWS's SOC and PCI compliance reports, plus agreements such as the Business Associate Addendum, for the company's account. Where should the architect get them?",
+    options: [
+      { id: "A", text: "AWS Artifact." },
+      { id: "B", text: "AWS Security Hub." },
+      { id: "C", text: "Amazon Inspector." },
+      { id: "D", text: "AWS Identity and Access Management." }
+    ],
+    correct: ["A"],
+    explanation:
+      "AWS Artifact is the self-service portal for AWS's own compliance artefacts — SOC reports, PCI attestations, ISO certifications and agreements such as the BAA and NDA. It is the only place these documents are published.",
+    whyWrong: {
+      B: "Security Hub aggregates security findings about your own resources; it does not host AWS's audit reports.",
+      C: "Inspector assesses your workloads for vulnerabilities and has nothing to do with AWS's certifications.",
+      D: "IAM controls access to resources; it neither stores nor generates compliance reports."
+    }
+  },
+
+  {
+    id: "sec-057",
+    domain: "Design Secure Architectures",
+    topic: "Cross-account access with IAM roles",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "An organization wants to procure resources such as Transit Gateways, License Manager configurations and Route 53 Resolver rules centrally and share them across its many AWS accounts, without duplicating them. Which TWO services accomplish this?",
+    options: [
+      { id: "A", text: "AWS Organizations, to consolidate the accounts into one organization." },
+      { id: "B", text: "AWS Resource Access Manager, to share the resources with those accounts." },
+      { id: "C", text: "AWS Control Tower, to share the resources across accounts." },
+      { id: "D", text: "IAM cross-account roles configured individually in every account." },
+      { id: "E", text: "AWS ParallelCluster, to consolidate the accounts." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Organizations provides the account structure and the boundary within which sharing is trusted. Resource Access Manager then shares specific resource types — Transit Gateways, subnets, License Manager configurations, Resolver rules — with accounts or organizational units, so they are created once and used everywhere.",
+    whyWrong: {
+      C: "Control Tower sets up and governs a landing zone. Sharing individual resources across accounts is RAM's job.",
+      D: "Hand-built cross-account roles in every account is the operational burden RAM exists to remove, and it does not share resource types like Transit Gateways.",
+      E: "ParallelCluster is an HPC cluster management tool and is unrelated to account consolidation."
+    }
+  },
+
+  {
+    id: "sec-058",
+    domain: "Design Secure Architectures",
+    topic: "Edge protection with WAF and Shield",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "SQL injection attempts are hitting Application Load Balancers in several AWS accounts. The team needs immediate protection and wants one place to define and reuse the rules across every account. What should be implemented?",
+    options: [
+      { id: "A", text: "AWS WAF with the SQL database managed rule group on each ALB, administered centrally through AWS Firewall Manager." },
+      { id: "B", text: "Amazon GuardDuty with a managed rule blocking SQL injection, shared through Security Hub." },
+      { id: "C", text: "AWS Network Firewall with stateful rule groups in front of each ALB." },
+      { id: "D", text: "Amazon Macie to scan for the vulnerability, followed by refactoring the applications." }
+    ],
+    correct: ["A"],
+    explanation:
+      "The AWS Managed Rules SQL database rule group blocks request patterns associated with SQL injection and attaches directly to an ALB. Firewall Manager then defines the policy once at the organization level and enforces it on load balancers across every account.",
+    whyWrong: {
+      B: "GuardDuty detects threats from log analysis; it cannot attach rules to an ALB or block requests.",
+      C: "Network Firewall protects VPC traffic and is not the layer that inspects HTTP requests reaching a load balancer.",
+      D: "Macie classifies sensitive data in S3, and refactoring the applications takes far too long for an active attack."
+    }
+  },
+
+  {
+    id: "res-046",
+    domain: "Design Resilient Architectures",
+    topic: "Multi-AZ vs multi-Region design",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A relational workload needs cross-Region disaster recovery with an RPO of roughly one second and an RTO under one minute, managed by AWS rather than the application. Which data tier should be selected?",
+    options: [
+      { id: "A", text: "Amazon Aurora Global Database." },
+      { id: "B", text: "Amazon RDS for PostgreSQL with a cross-Region read replica." },
+      { id: "C", text: "Amazon DynamoDB global tables." },
+      { id: "D", text: "Amazon RDS Multi-AZ with automated backups copied cross-Region." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Aurora Global Database replicates at the storage layer with typical cross-Region lag under a second, and a secondary Region can be promoted in well under a minute. That combination of RPO and RTO, with AWS managing the replication, is what the requirement describes.",
+    whyWrong: {
+      B: "Cross-Region read replicas replicate asynchronously at the logical level with higher, more variable lag, and promotion takes several minutes.",
+      C: "Global tables meet the replication targets but are non-relational, so they do not fit a relational workload.",
+      D: "Multi-AZ protects against Availability Zone loss only, and restoring cross-Region backups takes hours."
+    }
+  },
+
+  {
+    id: "perf-051",
+    domain: "Design High-Performing Architectures",
+    topic: "Aurora endpoints and read scaling",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An Aurora cluster contains instances of different sizes. Production traffic must be routed to the high-capacity instances while internal reporting queries go to the low-capacity ones. What should be configured?",
+    options: [
+      { id: "A", text: "Two custom endpoints, one associated with the high-capacity instances and one with the low-capacity instances." },
+      { id: "B", text: "The cluster endpoint for production traffic and the instance endpoint for reporting." },
+      { id: "C", text: "The reader endpoint for both, letting Aurora load balance across all replicas." },
+      { id: "D", text: "Nothing — Aurora routes heavy traffic to larger instances automatically." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Custom endpoints load balance across a subset of instances that you define by criteria other than read/write role — such as instance class. Defining one for the high-capacity instances and another for the low-capacity ones gives each workload its own connection target.",
+    whyWrong: {
+      B: "The cluster endpoint always points at the writer, and an instance endpoint targets exactly one instance with no load balancing or failover.",
+      C: "The reader endpoint spreads connections across all replicas indiscriminately, so reporting queries would land on the production instances.",
+      D: "Aurora has no notion of which traffic is 'production'; endpoint selection is how you express that."
+    }
+  },
+
+  {
+    id: "res-048",
+    domain: "Design Resilient Architectures",
+    topic: "S3 durability and replication",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "After an engineer accidentally deleted objects from a production bucket, the team must protect against both accidental deletion and overwriting. Which TWO settings together achieve this?",
+    options: [
+      { id: "A", text: "Enable S3 Versioning on the bucket." },
+      { id: "B", text: "Enable MFA Delete on the bucket." },
+      { id: "C", text: "Serve all objects through pre-signed URLs only." },
+      { id: "D", text: "Attach a bucket policy denying s3:DeleteObject to everyone." },
+      { id: "E", text: "Move the objects to S3 Intelligent-Tiering." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Versioning keeps every variant of an object, so an overwrite creates a new version and a delete only adds a delete marker — both are recoverable. MFA Delete adds a second factor before anyone can permanently remove a version or change the versioning state.",
+    whyWrong: {
+      C: "Pre-signed URLs grant temporary access to an object; they do not prevent an authorised principal from deleting it.",
+      D: "A blanket deny blocks legitimate deletions too. The goal is preventing accidents, not removing the capability.",
+      E: "Intelligent-Tiering optimises storage cost by access pattern and offers no protection against deletion."
+    }
+  },
+
+  {
+    id: "res-049",
+    domain: "Design Resilient Architectures",
+    topic: "Event-driven patterns with EventBridge",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "When a vehicle listing is deleted from an Aurora MySQL table, the record must be forwarded to a distributed processing system. Which approach captures that row-level change?",
+    options: [
+      { id: "A", text: "Use an Aurora MySQL native function to invoke a Lambda function on delete, and have it publish to an SQS queue." },
+      { id: "B", text: "Create an RDS event subscription to SNS, fanning out to SQS queues processed by Lambda." },
+      { id: "C", text: "Create an RDS event subscription targeting Lambda directly, which fans out to SQS." },
+      { id: "D", text: "Create an RDS event subscription to SQS, which fans out to SNS topics." }
+    ],
+    correct: ["A"],
+    explanation:
+      "RDS event subscriptions report operational events about the instance — failovers, backups, configuration changes — not changes to rows. Aurora MySQL can invoke a Lambda function directly from a stored procedure or trigger, which is how you react to a specific row being deleted.",
+    whyWrong: {
+      B: "RDS events are instance-level notifications; a deleted row never generates one.",
+      C: "Same limitation — the subscription would never fire for a data change, regardless of its target.",
+      D: "Besides the same problem, SQS queues do not fan out to SNS topics; the relationship runs the other way."
+    }
+  },
+
+  {
+    id: "res-050",
+    domain: "Design Resilient Architectures",
+    topic: "Auto Scaling and health checks",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "An Auto Scaling group spans three Availability Zones with default settings. A scale-in event is triggered. Which instance does the group terminate first?",
+    options: [
+      { id: "A", text: "In the Availability Zone with the most instances, the one launched from the oldest launch template." },
+      { id: "B", text: "The instance that has been running the longest, regardless of zone." },
+      { id: "C", text: "The instance with the fewest active user sessions." },
+      { id: "D", text: "An instance chosen entirely at random." }
+    ],
+    correct: ["A"],
+    explanation:
+      "The default termination policy first rebalances across Availability Zones by choosing the zone with the most instances, then within that zone selects instances using the oldest launch template or configuration. Randomness only breaks a final tie.",
+    whyWrong: {
+      B: "Uptime is not the criterion — a long-running instance on the newest template in a sparse zone is not chosen first.",
+      C: "Auto Scaling has no visibility into application sessions; that is why connection draining and lifecycle hooks exist.",
+      D: "Random selection is the last tie-breaker, not the first rule."
+    }
+  },
+
+  {
+    id: "res-051",
+    domain: "Design Resilient Architectures",
+    topic: "Backup and restore with AWS Backup",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A compliance rule requires 90 days of daily backups for an Amazon Aurora cluster. What is the simplest way to meet it?",
+    options: [
+      { id: "A", text: "Create an AWS Backup plan taking daily snapshots with a 90-day retention period." },
+      { id: "B", text: "Configure RDS automated backups with a 90-day retention period." },
+      { id: "C", text: "Schedule a Lambda function to copy the automated snapshot to S3 daily and archive to Glacier after 90 days." },
+      { id: "D", text: "Export automated snapshots to S3 automatically and expire them with a lifecycle rule." }
+    ],
+    correct: ["A"],
+    explanation:
+      "RDS automated backups cap out at 35 days of retention, so a 90-day requirement cannot be met that way. An AWS Backup plan schedules the snapshots and applies whatever retention you specify, with central monitoring and reporting.",
+    whyWrong: {
+      B: "The maximum retention for RDS automated backups is 35 days — well short of 90.",
+      C: "Automated snapshots cannot be downloaded or copied to S3 directly; they must first be copied into manual snapshots, and the custom pipeline is unnecessary work.",
+      D: "There is no automatic export of automated snapshots to S3; exporting is a manual operation on a manual snapshot."
+    }
+  },
+
+  {
+    id: "res-052",
+    domain: "Design Resilient Architectures",
+    topic: "Decoupling with SQS",
+    difficulty: "easy",
+    type: "single",
+    question:
+      "An order-processing system on a standard SQS queue occasionally processes the same order twice, and ordering matters for a given customer account. What should be changed?",
+    options: [
+      { id: "A", text: "Move to an SQS FIFO queue, which provides exactly-once processing and ordering within a message group." },
+      { id: "B", text: "Increase the queue's message retention period." },
+      { id: "C", text: "Increase the maximum message size." },
+      { id: "D", text: "Shorten the visibility timeout so messages are retried sooner." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Standard queues give at-least-once delivery and best-effort ordering, which is exactly the behaviour producing duplicates and out-of-order processing. FIFO queues deduplicate within a five-minute window and preserve order within each message group.",
+    whyWrong: {
+      B: "Retention controls how long an unconsumed message survives and has no bearing on duplicates or ordering.",
+      C: "Message size is unrelated to delivery semantics.",
+      D: "A shorter visibility timeout makes redelivery more likely while processing is still in flight, increasing duplicates."
+    }
+  },
+
+  {
+    id: "perf-044",
+    domain: "Design High-Performing Architectures",
+    topic: "Read scaling with ElastiCache",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A banking portal uses ElastiCache for Redis for session state. Engineers must authenticate with a password before running Redis commands, and the credential must be long-lived. What should be configured?",
+    options: [
+      { id: "A", text: "Create the Redis cluster with --transit-encryption-enabled and --auth-token to require Redis AUTH." },
+      { id: "B", text: "Enable at-rest encryption on the replication group." },
+      { id: "C", text: "Enable in-transit encryption on its own." },
+      { id: "D", text: "Generate an IAM authentication token from AWS credentials and use it as the password." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Redis AUTH requires a password before commands are accepted, and ElastiCache requires in-transit encryption to be enabled alongside it so the token is not sent in clear text. The two parameters are set together at cluster creation.",
+    whyWrong: {
+      B: "At-rest encryption protects the stored data on disk and imposes no authentication on connecting clients.",
+      C: "In-transit encryption protects the channel but does not require a password, so any client that can reach the endpoint can issue commands.",
+      D: "IAM authentication tokens for ElastiCache expire after a short period, which conflicts with the long-lived credential requirement here."
+    }
+  },
+
+  {
+    id: "perf-045",
+    domain: "Design High-Performing Architectures",
+    topic: "CloudFront and content delivery",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A subscription site serves many private media files through CloudFront and must restrict them to paying members. The existing URLs must not change. Which mechanism fits?",
+    options: [
+      { id: "A", text: "CloudFront signed cookies, set for members after they authenticate." },
+      { id: "B", text: "CloudFront signed URLs generated for each file." },
+      { id: "C", text: "Field-level encryption on the distribution." },
+      { id: "D", text: "Setting the origin protocol policy to Match Viewer." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Signed cookies and signed URLs grant the same controlled access, but cookies are the choice when you need to authorise many files at once and cannot change the URLs — the browser presents the cookie on every request to the distribution.",
+    whyWrong: {
+      B: "Signed URLs authorise one file each and rewrite the URL, which the requirement rules out.",
+      C: "Field-level encryption protects specific form fields submitted by viewers; it does not restrict who may download content.",
+      D: "Match Viewer controls whether CloudFront contacts the origin over HTTP or HTTPS and has nothing to do with authorisation."
+    }
+  },
+
+  {
+    id: "perf-046",
+    domain: "Design High-Performing Architectures",
+    topic: "DynamoDB performance and caching",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A DynamoDB table throttles writes even though overall provisioned capacity is barely used. Analysis shows most writes concentrate on a handful of partition key values. What is the correct design change?",
+    options: [
+      { id: "A", text: "Choose a partition key with high cardinality so requests spread across many partitions." },
+      { id: "B", text: "Choose a partition key with low cardinality to keep related items together." },
+      { id: "C", text: "Reduce the number of distinct partition key values in the table." },
+      { id: "D", text: "Avoid composite primary keys that combine a partition key and a sort key." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Provisioned throughput is divided across physical partitions, and partitions are determined by the partition key. The more distinct key values a workload touches, the more evenly requests spread — which is why a high-cardinality partition key is the fix for a hot partition.",
+    whyWrong: {
+      B: "Low cardinality concentrates requests on fewer partitions, which is the cause of the throttling rather than the cure.",
+      C: "Fewer distinct values makes concentration worse.",
+      D: "A composite key gives more distinct partitions to work with and is generally helpful, not something to avoid."
+    }
+  },
+
+  {
+    id: "perf-047",
+    domain: "Design High-Performing Architectures",
+    topic: "Shared file storage selection",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A Linux rendering engine writes to an NFS share while a Windows editing application reads the same data over SMB. Today the company synchronises two file systems, doubling storage. Which AWS service removes the duplication with the fewest changes?",
+    options: [
+      { id: "A", text: "Amazon FSx for NetApp ONTAP, which serves the same data over NFS, SMB and iSCSI." },
+      { id: "B", text: "Amazon EFS for the Linux side and FSx for Windows File Server for the Windows side." },
+      { id: "C", text: "Amazon FSx for Lustre linked to an S3 bucket." },
+      { id: "D", text: "An Amazon S3 bucket accessed by both applications through the SDK." }
+    ],
+    correct: ["A"],
+    explanation:
+      "FSx for NetApp ONTAP is multi-protocol: the same volume can be presented over NFS to Linux clients and SMB to Windows clients. One copy of the data serves both applications, and neither has to change protocol.",
+    whyWrong: {
+      B: "This is the existing arrangement in AWS form — two file systems and the same synchronisation and duplication problem.",
+      C: "FSx for Lustre is a Linux HPC file system and does not serve SMB to Windows clients.",
+      D: "S3 is object storage with no file semantics; both applications would need rewriting."
+    }
+  },
+
+  {
+    id: "perf-048",
+    domain: "Design High-Performing Architectures",
+    topic: "Serverless compute with Lambda",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A REST API on API Gateway and Lambda expects a sudden surge of traffic after a product announcement. What protects the backend from request spikes?",
+    options: [
+      { id: "A", text: "Configure throttling limits and caching on the API Gateway stage." },
+      { id: "B", text: "Nothing — API Gateway scales automatically and needs no configuration." },
+      { id: "C", text: "Put CloudFront in front of API Gateway to act as the backend cache." },
+      { id: "D", text: "Move the Lambda function into a VPC." }
+    ],
+    correct: ["A"],
+    explanation:
+      "API Gateway supports rate and burst throttling per stage and per method, returning 429 above the limit, and stage caching serves repeated requests without invoking the backend. Together they shield the backend from spikes.",
+    whyWrong: {
+      B: "API Gateway does scale, but without limits the traffic passes straight through to the backend, which is what needs protecting.",
+      C: "API Gateway already runs at edge locations for edge-optimised endpoints, and CloudFront does not throttle per-method request rates.",
+      D: "Putting a function in a VPC affects its network path, not its exposure to traffic volume."
+    }
+  },
+
+  {
+    id: "perf-049",
+    domain: "Design High-Performing Architectures",
+    topic: "Data transfer and migration services",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A .NET application on Windows Server with an Oracle Standard Edition backend must move to AWS with minimal development change and improved availability. Which TWO actions fit?",
+    options: [
+      { id: "A", text: "Rehost the .NET application on AWS Elastic Beanstalk in a Multi-AZ environment." },
+      { id: "B", text: "Migrate the Oracle database to Amazon RDS for Oracle in a Multi-AZ deployment using AWS DMS." },
+      { id: "C", text: "Refactor the application to .NET Core and run it on Amazon EKS with Fargate." },
+      { id: "D", text: "Replatform onto ECS with EC2 worker nodes using a Windows AMI and ECS Anywhere." },
+      { id: "E", text: "Convert the schema with AWS Schema Conversion Tool before migrating." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Elastic Beanstalk supports ASP.NET on IIS and provisions a Multi-AZ environment without code changes, which is the definition of a rehost. Moving Oracle to RDS for Oracle is a homogeneous migration that DMS handles directly, and Multi-AZ supplies the availability.",
+    whyWrong: {
+      C: "Refactoring to .NET Core is a significant code change, which the requirement explicitly excludes.",
+      D: "Replatforming onto ECS with EC2 workers means managing the instances and reworking deployment — more change and more operations.",
+      E: "SCT is for heterogeneous migrations. Oracle to Oracle needs no schema conversion."
+    }
+  },
+
+  {
+    id: "perf-050",
+    domain: "Design High-Performing Architectures",
+    topic: "Analytics with Athena and Redshift",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Raw 2 GB CSV files arrive hourly in S3 and must be converted to Apache Parquet in another bucket, with the conversion starting as soon as each file lands. Which design has the least operational overhead?",
+    options: [
+      { id: "A", text: "An AWS Glue ETL job that writes Parquet output, triggered by an EventBridge rule on S3 Object Created events." },
+      { id: "B", text: "A Glue crawler scheduled hourly to find new files and convert them." },
+      { id: "C", text: "A Lambda function triggered by S3 events, with AWS Transfer Family moving the output." },
+      { id: "D", text: "An Apache Spark job on EC2, invoked through a Lambda Function URL on each upload." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Glue handles the conversion to Parquet natively and is serverless, and an EventBridge rule on Object Created starts the job the moment a file arrives. Nothing is provisioned and no polling or scheduling logic is written.",
+    whyWrong: {
+      B: "A crawler catalogues data on a schedule; it neither converts formats nor reacts to an upload immediately.",
+      C: "A 2 GB conversion risks Lambda's memory and 15-minute limits, and Transfer Family is an SFTP service with no role in moving output between buckets.",
+      D: "Running Spark on EC2 means provisioning, patching and scaling a cluster — the opposite of least overhead."
+    }
+  },
+
+  {
+    id: "cost-037",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Elastic scaling to match demand",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An Auto Scaling group is over-provisioned, and the manager wants capacity reduced without hurting performance. Which dynamic scaling policy keeps a chosen metric near a target and adjusts continuously?",
+    options: [
+      { id: "A", text: "Target tracking scaling." },
+      { id: "B", text: "Simple scaling." },
+      { id: "C", text: "Scheduled scaling." },
+      { id: "D", text: "Suspend and resume scaling processes." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Target tracking keeps a metric such as average CPU close to a value you choose, adding and removing capacity as load moves. That is what removes over-provisioning without the thresholds and cooldown delays of the older policy types.",
+    whyWrong: {
+      B: "Simple scaling must wait out a cooldown after each activity before responding again, so it reacts more slowly and less precisely.",
+      C: "Scheduled scaling suits predictable calendar patterns, not continuous right-sizing against actual load.",
+      D: "Suspending scaling processes pauses automation entirely, which is the opposite of the goal."
+    }
+  },
+
+  {
+    id: "cost-038",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Database cost optimization",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Performance testing runs against a large MySQL RDS instance twice a week. Between tests the database is unused. What is the most cost-effective way to run the tests without compromising them?",
+    options: [
+      { id: "A", text: "Snapshot the database and delete the instance after each test, restoring from the snapshot when the next test is due." },
+      { id: "B", text: "Stop the instance after each test and start it again when needed." },
+      { id: "C", text: "Downgrade to a smaller instance class." },
+      { id: "D", text: "Run the tests against a local copy taken with mysqldump." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A stopped RDS instance still bills for its provisioned storage, and RDS restarts stopped instances automatically after seven days. Snapshotting and deleting leaves only the much cheaper snapshot storage between runs, and restoring reproduces the same instance for the next test.",
+    whyWrong: {
+      B: "Stopping removes the instance-hour charge but keeps paying for storage, and the seven-day automatic restart means it will not stay stopped between weekly tests anyway.",
+      C: "A smaller instance changes the performance characteristics being measured, compromising the tests.",
+      D: "A laptop does not reproduce RDS behaviour, so the results would not be trustworthy."
+    }
+  },
+
+  {
+    id: "cost-039",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Compute pricing models",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "An application on Reserved Instances has been decommissioned, and the company wants to stop paying for the reservations as quickly as possible. Which TWO actions should be taken?",
+    options: [
+      { id: "A", text: "List the Standard Reserved Instances for sale on the AWS Reserved Instance Marketplace." },
+      { id: "B", text: "Terminate the running instances so they are not billed at On-Demand rates when the reservation expires." },
+      { id: "C", text: "Stop the instances rather than terminating them." },
+      { id: "D", text: "Contact AWS to cancel the account subscription." },
+      { id: "E", text: "Sell the reservations on the Amazon.com retail site." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Standard Reserved Instances can be sold on the Reserved Instance Marketplace, which recovers value from the remaining term. The running instances should be terminated because once the reservation lapses they would bill at full On-Demand rates, and the workload is gone.",
+    whyWrong: {
+      C: "A stopped instance can be restarted and still carries charges for attached storage and any associated Elastic IP addresses.",
+      D: "Closing the whole account is drastic and unnecessary for retiring one application.",
+      E: "Reservations are sold through the AWS Reserved Instance Marketplace, not the retail site."
+    }
+  },
+
+  {
+    id: "cost-040",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "S3 storage class selection",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "Easily reproducible files are read frequently for one month. After that, most are rarely read with no retrieval-time requirement, except those under a specific prefix which must still return in milliseconds. Which lifecycle design is cheapest?",
+    options: [
+      { id: "A", text: "After 30 days, move the objects under that prefix to S3 One Zone-IA and everything else to Glacier." },
+      { id: "B", text: "After 30 days, move the objects under that prefix to S3 Standard-IA and everything else to Glacier." },
+      { id: "C", text: "After 30 days, move the whole bucket to S3 Standard-IA." },
+      { id: "D", text: "Move the whole bucket to S3 Intelligent-Tiering." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Lifecycle rules can be scoped by prefix, so the millisecond-retrieval subset goes to an instant-access class while the rest goes to Glacier. Because the files are easily reproducible, One Zone-IA is acceptable and costs less than Standard-IA — losing an Availability Zone means regenerating rather than losing data.",
+    whyWrong: {
+      B: "Standard-IA works but costs more than One Zone-IA, and the reproducibility of the data is exactly what makes the cheaper class safe here.",
+      C: "This leaves the rarely-read majority in an infrequent-access class when Glacier would be far cheaper.",
+      D: "Intelligent-Tiering charges monitoring per object to discover an access pattern that is already known."
+    }
+  },
+
+  {
+    id: "cost-041",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Lifecycle policies and archival",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Audit logs must be retained for five years, and the compliance team requires that nobody — including administrators — can delete them before that. Which mechanism enforces this?",
+    options: [
+      { id: "A", text: "Store the logs in an S3 Glacier vault and apply a Vault Lock policy denying deletion until the retention period elapses." },
+      { id: "B", text: "Store the logs in S3 with MFA Delete enabled on the bucket." },
+      { id: "C", text: "Store the logs on an EBS volume and take monthly snapshots." },
+      { id: "D", text: "Store the logs on EFS and rely on NFSv4 file locking." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A Vault Lock policy becomes immutable once locked — it cannot be changed or removed even by the account owner, so a deny on deletion until the retention period elapses is genuinely enforceable against everyone.",
+    whyWrong: {
+      B: "MFA Delete adds a factor but anyone holding the MFA device can still delete, so it is not an absolute control.",
+      C: "Anyone with EBS permissions can delete the volume and its snapshots.",
+      D: "NFS file locking coordinates concurrent access; it is not a retention control and can be overridden."
+    }
+  },
+
+  {
+    id: "cost-042",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Environment scheduling and idle resources",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A Windows application with an attached FSx file system is stopped overnight to save money, but takes several minutes to become usable after each restart. How can start-up time be cut without raising cost materially?",
+    options: [
+      { id: "A", text: "Move the workload to an instance launched with hibernation enabled, so memory state is preserved between stops." },
+      { id: "B", text: "Enable hibernation on the existing running instance." },
+      { id: "C", text: "Migrate the application to a Linux instance." },
+      { id: "D", text: "Disable the Instance Metadata Service to shorten boot." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Hibernation writes the instance's memory contents to the root volume on stop and restores them on start, so applications resume where they left off instead of initialising from scratch. While hibernated you pay only for storage and any Elastic IP, so the overnight saving is preserved.",
+    whyWrong: {
+      B: "Hibernation must be enabled at launch; it cannot be turned on for an instance that already exists.",
+      C: "Changing operating system is a large, risky change with no guarantee of faster start-up.",
+      D: "The Instance Metadata Service is a network endpoint, not a boot-time task, so disabling it saves nothing."
+    }
   }
 
 ];

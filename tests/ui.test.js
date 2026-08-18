@@ -1,6 +1,4 @@
 const { JSDOM, VirtualConsole } = require('jsdom');
-/* Base URL is configurable so the same suite runs against the local Docker
- * container or a throwaway server in CI. */
 const BASE = process.env.BASE_URL || 'http://localhost:8080';
 
 const errs = [];
@@ -75,7 +73,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
   });
   ok(problems.length === 0, 'all banks schema-valid against their own path' + (problems.length ? ' — ' + problems.join('; ') : ''));
-  ok((BANKS['SAA-C03']||[]).length === 149 && (BANKS['DVA-C02']||[]).length === 8 &&
+  ok((BANKS['SAA-C03']||[]).length === 177 && (BANKS['DVA-C02']||[]).length === 8 &&
      (BANKS['SAP-C02']||[]).length === 16 && (BANKS['DOP-C02']||[]).length === 17,
      `bank sizes SAA ${BANKS['SAA-C03'].length}, DVA ${BANKS['DVA-C02'].length}, ` +
      `SAP ${BANKS['SAP-C02'].length}, DOP ${BANKS['DOP-C02'].length}`);
