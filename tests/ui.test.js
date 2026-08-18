@@ -75,7 +75,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
   });
   ok(problems.length === 0, 'all banks schema-valid against their own path' + (problems.length ? ' — ' + problems.join('; ') : ''));
-  ok((BANKS['SAA-C03']||[]).length === 125 && (BANKS['DVA-C02']||[]).length === 8 &&
+  ok((BANKS['SAA-C03']||[]).length === 149 && (BANKS['DVA-C02']||[]).length === 8 &&
      (BANKS['SAP-C02']||[]).length === 16 && (BANKS['DOP-C02']||[]).length === 17,
      `bank sizes SAA ${BANKS['SAA-C03'].length}, DVA ${BANKS['DVA-C02'].length}, ` +
      `SAP ${BANKS['SAP-C02'].length}, DOP ${BANKS['DOP-C02'].length}`);

@@ -3067,6 +3067,593 @@ window.BANKS["SAA-C03"] = [
       C: "A NAT gateway bills hourly even when idle plus per GB processed, making it the most expensive of the workable options.",
       D: "Transit Gateway connects VPCs and on-premises networks; S3 is not in a VPC, so it cannot be reached this way."
     }
+  },
+
+  /* ==========================================================
+   * Batch 6 — written against a second failed practice set.
+   * Concepts that were entirely missing from the bank:
+   * Control Tower drift, Aurora Serverless ACUs, Lambda
+   * SnapStart, Instance Scheduler, the AWS Load Balancer
+   * Controller, Transit Gateway at scale, Cognito authorizers,
+   * S3 Object Lock, Storage Lens and CloudFront TTLs.
+   * ========================================================== */
+
+  {
+    id: "sec-042",
+    domain: "Design Secure Architectures",
+    topic: "Multi-account governance with Control Tower",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Accounts are grouped into organizational units in AWS Organizations. Stakeholders must be notified when the OU hierarchy changes — an account moved between OUs, or removed from one — and want to subscribe to those alerts. Which option meets this with the least administrative overhead?",
+    options: [
+      { id: "A", text: "Provision the accounts with AWS Control Tower and enable account drift notifications." },
+      { id: "B", text: "Provision the accounts with AWS Control Tower and set up AWS Config aggregated rules." },
+      { id: "C", text: "Create the accounts with AWS Service Catalog and configure a CloudTrail organization trail." },
+      { id: "D", text: "Use CloudFormation StackSets across the organization and run drift detection on the stacks." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Control Tower already watches for governance drift, and moving or removing an account from its OU is exactly what account drift means. Enabling drift notifications publishes those events for stakeholders to subscribe to, with nothing to build.",
+    whyWrong: {
+      B: "Config rules evaluate resource configuration across accounts. The OU hierarchy is an Organizations structure, not a resource configuration.",
+      C: "An organization trail logs every API call in every account. Isolating OU-hierarchy changes from that volume means building the filtering and alerting yourself.",
+      D: "StackSet drift detection compares deployed resources against their templates; it says nothing about where an account sits in the OU tree."
+    }
+  },
+
+  {
+    id: "sec-043",
+    domain: "Design Secure Architectures",
+    topic: "Multi-account governance with Control Tower",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A company with a handful of accounts wants a governed multi-account environment quickly: separate log archive and audit accounts, preventive and detective guardrails applied consistently, and a repeatable way for teams to request new compliant accounts. Which approach involves the least engineering?",
+    options: [
+      { id: "A", text: "Deploy AWS Control Tower, which builds the landing zone and provides Account Factory for new accounts." },
+      { id: "B", text: "Build the landing zone by hand with Organizations, SCPs, a logging account and StackSets." },
+      { id: "C", text: "Use AWS Config conformance packs deployed organization-wide." },
+      { id: "D", text: "Use AWS Service Catalog products that each team launches into its own account." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Control Tower orchestrates Organizations, Service Catalog and IAM Identity Center to stand up a landing zone — log archive and audit accounts, guardrails, and Account Factory for self-service provisioning — in about an hour, rather than as a build project.",
+    whyWrong: {
+      B: "This is exactly what Control Tower automates. Doing it by hand is a substantial project and drifts over time.",
+      C: "Conformance packs give detective controls but no landing zone, no account structure and no provisioning path.",
+      D: "Service Catalog distributes approved products; on its own it does not create the account structure or the guardrails."
+    }
+  },
+
+  {
+    id: "sec-044",
+    domain: "Design Secure Architectures",
+    topic: "VPC connectivity: peering, Transit Gateway and VPN",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A healthcare provider runs each application in its own isolated VPC. All of them must reach a central shared-services VPC and also communicate with each other, and dozens more application VPCs will be added over the next year. Which design minimises administrative overhead?",
+    options: [
+      { id: "A", text: "An AWS Transit Gateway attached to every VPC, with route tables directing traffic through the hub." },
+      { id: "B", text: "VPC peering connections between the shared-services VPC and each application VPC, and between application VPCs." },
+      { id: "C", text: "Site-to-Site VPN tunnels from each application VPC to the shared-services VPC." },
+      { id: "D", text: "AWS Direct Connect between the application VPCs and the shared-services VPC." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Transit Gateway is a hub: each VPC attaches once and can then reach any other attachment allowed by the route tables. Adding the fiftieth VPC is one attachment, whereas mesh approaches grow quadratically — which is precisely the overhead the requirement targets.",
+    whyWrong: {
+      B: "Peering is non-transitive, so every pair that must talk needs its own connection. Dozens of VPCs means hundreds of connections and route entries to maintain.",
+      C: "VPN tunnels between VPCs add encryption overhead, throughput limits and per-tunnel management, and scale no better than peering.",
+      D: "Direct Connect links on-premises networks to AWS. It is not a mechanism for VPC-to-VPC routing."
+    }
+  },
+
+  {
+    id: "sec-045",
+    domain: "Design Secure Architectures",
+    topic: "VPC connectivity: peering, Transit Gateway and VPN",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Two VPCs in the same Region must exchange traffic between a small number of instances. There is no requirement for transitive routing to other VPCs or on-premises networks, and the team wants the lowest cost. What should be used?",
+    options: [
+      { id: "A", text: "A VPC peering connection between the two VPCs, with routes added on both sides." },
+      { id: "B", text: "A Transit Gateway with both VPCs attached." },
+      { id: "C", text: "A Site-to-Site VPN between the two VPCs." },
+      { id: "D", text: "A PrivateLink endpoint service in each VPC." }
+    ],
+    correct: ["A"],
+    explanation:
+      "For a simple pair of VPCs with no transitive requirement, peering is the right tool: there is no hourly charge for the connection itself, only data transfer, and the configuration is two route entries.",
+    whyWrong: {
+      B: "Transit Gateway bills per attachment per hour plus data processing. That overhead is worth paying at scale, not for a single pair.",
+      C: "A VPN adds encryption processing and bandwidth limits for traffic that already stays on the AWS network.",
+      D: "PrivateLink exposes a specific service endpoint rather than general connectivity between the VPCs."
+    }
+  },
+
+  {
+    id: "sec-046",
+    domain: "Design Secure Architectures",
+    topic: "Application authentication with Cognito",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An organisation exposes RESTful APIs through Amazon API Gateway to millions of end users. Users must sign in, and each API call must be verified against that sign-in. Which approach is the most operationally efficient?",
+    options: [
+      { id: "A", text: "Authenticate users with an Amazon Cognito user pool and attach a Cognito user pool authorizer to the API methods." },
+      { id: "B", text: "Use an Amazon Cognito identity pool for federated identities and secure the API with an IAM authorizer." },
+      { id: "C", text: "Write a Lambda authorizer that validates credentials on every request." },
+      { id: "D", text: "Create an IAM user per end user and secure the API with an IAM authorizer." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A user pool is a managed user directory that handles registration, sign-in and token issuance, and API Gateway has a built-in COGNITO_USER_POOLS authorizer that validates the resulting token on every call. It is configuration rather than code, and scales to millions of users.",
+    whyWrong: {
+      B: "Identity pools exchange an existing identity for temporary AWS credentials to call AWS services directly. They are not the authentication directory for API users.",
+      C: "A Lambda authorizer is the right answer for a custom or third-party token scheme, but here it means writing, testing and operating code that the built-in authorizer already provides.",
+      D: "IAM users are for workloads and staff, capped well below millions, and would be an unmanageable way to represent application end users."
+    }
+  },
+
+  {
+    id: "sec-047",
+    domain: "Design Secure Architectures",
+    topic: "Identity federation and IAM Identity Center",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A corporation is migrating applications to AWS across many accounts under Organizations. The security team must sign in with their existing on-premises Active Directory credentials, and user and group management must stay in that on-premises directory. Which approach meets this?",
+    options: [
+      { id: "A", text: "Enable IAM Identity Center, deploy AWS Managed Microsoft AD, and establish a two-way forest trust with the on-premises Active Directory." },
+      { id: "B", text: "Create IAM users in each account mirroring the Active Directory user list." },
+      { id: "C", text: "Use an Amazon Cognito user pool federated to Active Directory for console access." },
+      { id: "D", text: "Deploy AWS Managed Microsoft AD and migrate all users and groups into it." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A two-way forest trust between AWS Managed Microsoft AD and the on-premises forest lets AWS authenticate the existing accounts while the on-premises directory stays authoritative for users and groups. Identity Center then maps those directory groups to permission sets across every account.",
+    whyWrong: {
+      B: "Mirrored IAM users create a second identity store to keep in sync, with long-lived credentials, in every account.",
+      C: "Cognito serves application end users, not workforce access to the AWS console and CLI.",
+      D: "Migrating the users into AWS moves the source of truth, which the requirement explicitly forbids."
+    }
+  },
+
+  {
+    id: "sec-048",
+    domain: "Design Secure Architectures",
+    topic: "KMS key policies and grants",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A company must prevent accidental deletion of KMS keys and email administrators whenever someone attempts one. Deletion attempts should be reversed automatically. Which solution does this with the least operational overhead?",
+    options: [
+      { id: "A", text: "An EventBridge rule matching KMS key-deletion scheduling, targeting an SSM Automation runbook that cancels the pending deletion, plus an SNS topic for notification." },
+      { id: "B", text: "An EventBridge rule targeting an AWS Config rule that reverses the deletion, plus an SNS topic." },
+      { id: "C", text: "CloudTrail delivering to CloudWatch Logs with a metric filter on DeleteKey that triggers an SNS notification." },
+      { id: "D", text: "A Lambda function that blocks key deletion, invoked by a CloudWatch alarm, plus an SNS topic." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Scheduling a KMS key for deletion starts a waiting period rather than deleting immediately, which leaves room to cancel. EventBridge detects the event, an SSM Automation runbook cancels the pending deletion, and the same rule notifies through SNS — managed components, no custom code.",
+    whyWrong: {
+      B: "Config evaluates and reports compliance; it does not intercept or reverse an API action.",
+      C: "This detects and notifies but never cancels the deletion, so the key still disappears after the waiting period.",
+      D: "Nothing can block the API call itself, and a CloudWatch alarm on an API event is the wrong trigger — EventBridge matches events directly."
+    }
+  },
+
+  {
+    id: "sec-049",
+    domain: "Design Secure Architectures",
+    topic: "S3 access controls and Block Public Access",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "Nightly virtual machine backups are copied to Amazon S3. They must be protected against overwriting or deletion for 20 days, then removed automatically. Which TWO actions together meet this?",
+    options: [
+      { id: "A", text: "Create the bucket with S3 Object Lock enabled and set a 20-day default retention period." },
+      { id: "B", text: "Add an S3 Lifecycle rule that expires the objects after 20 days." },
+      { id: "C", text: "Create the bucket with S3 Object Lock enabled and apply a 20-day legal hold." },
+      { id: "D", text: "Enable versioning on the bucket as a separate, explicit step." },
+      { id: "E", text: "Tag each object so a retention policy can select it." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Object Lock with a retention period makes objects immutable for those 20 days — write-once-read-many, so nothing can overwrite or delete them. A lifecycle expiration rule then removes them once the retention has elapsed, which is what makes the deletion automatic.",
+    whyWrong: {
+      C: "A legal hold has no expiry — it stays until someone with permission removes it explicitly, so the backups would never age out on their own.",
+      D: "Enabling Object Lock on a new bucket turns versioning on implicitly, so this is not a separate step.",
+      E: "Every backup needs identical protection, so selective tagging adds machinery for no benefit."
+    }
+  },
+
+  {
+    id: "sec-050",
+    domain: "Design Secure Architectures",
+    topic: "Auditing with CloudTrail and Config",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A global company stores data across S3 buckets in several Regions and needs to identify every bucket that does not have versioning enabled, with recommendations on data protection. Which service reports this directly?",
+    options: [
+      { id: "A", text: "Amazon S3 Storage Lens." },
+      { id: "B", text: "AWS CloudTrail events." },
+      { id: "C", text: "IAM Access Analyzer." },
+      { id: "D", text: "An S3 Multi-Region Access Point." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Storage Lens gives organisation-wide visibility into S3 usage and configuration, including data-protection metrics such as which buckets lack versioning, together with recommendations — across accounts and Regions from one dashboard.",
+    whyWrong: {
+      B: "CloudTrail records API calls. It would show a bucket's versioning being changed but cannot report the current state of every bucket.",
+      C: "Access Analyzer finds resources shared with external principals; it does not evaluate versioning.",
+      D: "Multi-Region Access Points route requests to buckets across Regions. They are an access mechanism, not an analytics tool."
+    }
+  },
+
+  {
+    id: "res-040",
+    domain: "Design Resilient Architectures",
+    topic: "Load balancer selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Microservices run on an Amazon EKS cluster and requests must be routed to different services based on the URL path. Which option achieves this with the least setup?",
+    options: [
+      { id: "A", text: "Provision an Application Load Balancer through the AWS Load Balancer Controller add-on, driven by Kubernetes Ingress resources." },
+      { id: "B", text: "Deploy an NGINX Ingress controller into the cluster." },
+      { id: "C", text: "Provision a Network Load Balancer through the AWS Load Balancer Controller." },
+      { id: "D", text: "Put an AWS Lambda function in front of the cluster to proxy requests." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Path-based routing is a layer 7 function, which is what an ALB does. The AWS Load Balancer Controller is the supported EKS add-on that watches Ingress resources and provisions the ALB and its target groups automatically, so the setup is an add-on plus an Ingress manifest.",
+    whyWrong: {
+      B: "NGINX Ingress reaches the same outcome but you then own the controller pods, their scaling, upgrades and the load balancer in front of them.",
+      C: "An NLB operates at layer 4 on IP and port. It cannot see URL paths.",
+      D: "A Lambda proxy means writing routing logic by hand, and it still needs an ingress path into the cluster."
+    }
+  },
+
+  {
+    id: "res-041",
+    domain: "Design Resilient Architectures",
+    topic: "Load balancer selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A Kubernetes Service of type LoadBalancer on Amazon EKS must expose a TCP-based protocol to clients that require a static IP address per Availability Zone. Which load balancer should the AWS Load Balancer Controller provision?",
+    options: [
+      { id: "A", text: "A Network Load Balancer." },
+      { id: "B", text: "An Application Load Balancer." },
+      { id: "C", text: "A Gateway Load Balancer." },
+      { id: "D", text: "A Classic Load Balancer." }
+    ],
+    correct: ["A"],
+    explanation:
+      "The requirements are layer 4 TCP and a static IP per Availability Zone, both of which are Network Load Balancer characteristics. The AWS Load Balancer Controller provisions an NLB for Services of type LoadBalancer, and an ALB for Ingress resources.",
+    whyWrong: {
+      B: "An ALB handles HTTP and HTTPS at layer 7 and has no static IP; it is what the controller provisions for Ingress, not for a TCP Service.",
+      C: "Gateway Load Balancers insert third-party network appliances into the traffic path.",
+      D: "The Classic Load Balancer is the previous generation and is not the controller's target for new workloads."
+    }
+  },
+
+  {
+    id: "res-042",
+    domain: "Design Resilient Architectures",
+    topic: "Decoupling with SQS",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An API Gateway endpoint invokes a Lambda function that writes each 5 KB payload to Aurora. The endpoint only needs to acknowledge receipt, not completion, but throttling errors keep appearing and the concurrency limit has been raised repeatedly. What is the correct fix?",
+    options: [
+      { id: "A", text: "Split into two functions — one that accepts the request and writes to an SQS queue, and one triggered by the queue that persists to the database." },
+      { id: "B", text: "Split into two functions and use Amazon SNS to signal the second function." },
+      { id: "C", text: "Move the data store to DynamoDB with a DAX cluster in front of it." },
+      { id: "D", text: "Rewrite the function as a Go application on EC2 using native database drivers." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Because the caller only needs an acknowledgement, the write can be deferred. A queue absorbs bursts, so the accepting function returns immediately while the processing function drains the backlog at whatever rate its concurrency allows — and Lambda backs off and retries on throttling rather than failing the caller.",
+    whyWrong: {
+      B: "SNS pushes each message to subscribers with no durable buffer for a slow consumer, so bursts still overwhelm the processing function.",
+      C: "DAX accelerates DynamoDB reads. The bottleneck here is concurrency on writes, which caching does not address.",
+      D: "This abandons serverless for a server fleet, replacing one scaling problem with instance management."
+    }
+  },
+
+  {
+    id: "res-043",
+    domain: "Design Resilient Architectures",
+    topic: "Backup and restore with AWS Backup",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An operations team needs one place to schedule, monitor and report on backups of EC2 instances, EBS volumes, EFS file systems and DynamoDB tables, with a single retention policy applied to all of them. What should they use?",
+    options: [
+      { id: "A", text: "AWS Backup with a backup plan and resource assignments covering all four resource types." },
+      { id: "B", text: "Amazon Data Lifecycle Manager policies for each resource type." },
+      { id: "C", text: "A scheduled Lambda function calling each service's native snapshot API." },
+      { id: "D", text: "AWS Config rules that create snapshots when resources drift." }
+    ],
+    correct: ["A"],
+    explanation:
+      "AWS Backup is the single control plane across those services: one backup plan defines the schedule, lifecycle and retention, and resource assignments select what it applies to, with centralised monitoring and reporting.",
+    whyWrong: {
+      B: "Data Lifecycle Manager covers EBS snapshots and AMIs only — EFS and DynamoDB fall outside it entirely.",
+      C: "Bespoke scripting means owning scheduling, retries, retention and reporting for four different APIs.",
+      D: "Config detects configuration drift; it is not a backup scheduler."
+    }
+  },
+
+  {
+    id: "res-044",
+    domain: "Design Resilient Architectures",
+    topic: "Fault isolation and blast radius",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A Lambda function reads from a queue and writes to an RDS database that supports a fixed number of connections. During spikes the function scales out far enough to exhaust the database's connections, taking down other applications that share it. Which control most directly prevents that?",
+    options: [
+      { id: "A", text: "Set reserved concurrency on the function so it can never exceed a safe number of simultaneous executions." },
+      { id: "B", text: "Increase the function's memory so each invocation finishes sooner." },
+      { id: "C", text: "Increase the account's concurrent execution limit." },
+      { id: "D", text: "Add a dead-letter queue to the function." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Reserved concurrency both guarantees and caps how many instances of a function can run at once. Capping it below the database's connection budget means the function can never exhaust the shared resource, no matter how deep the queue grows.",
+    whyWrong: {
+      B: "Faster invocations reduce how long each connection is held but place no ceiling on how many open at once.",
+      C: "Raising the account limit lets the function scale further, making the exhaustion worse.",
+      D: "A dead-letter queue captures messages that fail repeatedly; it does nothing to limit concurrency."
+    }
+  },
+
+  {
+    id: "res-045",
+    domain: "Design Resilient Architectures",
+    topic: "S3 durability and replication",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "Objects are written to a bucket by an application in one Region. A second team in another Region needs read access to the same objects with low latency, and the copy must stay current automatically as new objects arrive. What should be configured?",
+    options: [
+      { id: "A", text: "S3 Cross-Region Replication into a bucket in the second Region, with versioning enabled on both." },
+      { id: "B", text: "An S3 Multi-Region Access Point routing all reads back to the source bucket." },
+      { id: "C", text: "A CloudFront distribution with the source bucket as origin." },
+      { id: "D", text: "A nightly S3 Batch Operations copy job to the second Region." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Cross-Region Replication copies new objects to the destination bucket automatically as they are written, giving the second team a local copy in their own Region. Versioning on both buckets is a prerequisite for replication.",
+    whyWrong: {
+      B: "A Multi-Region Access Point routes requests intelligently but does not by itself create a second copy — without replication, reads still travel to the source Region.",
+      C: "CloudFront caches at edge locations and helps repeat reads, but the objects still originate from one Region and nothing is stored in the second.",
+      D: "A nightly job leaves the copy up to a day stale, which fails the requirement to stay current automatically."
+    }
+  },
+
+  {
+    id: "perf-038",
+    domain: "Design High-Performing Architectures",
+    topic: "Aurora Serverless capacity planning",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A MySQL-compatible database is being moved from on-premises to a managed AWS service. Its memory consumption ranges from 2 GiB to 16 GiB, and application traffic is unpredictable with spikes and periods of no activity. Capacity must scale automatically. Which configuration fits?",
+    options: [
+      { id: "A", text: "Aurora Serverless v2 with a minimum of 1 and a maximum of 8 Aurora capacity units." },
+      { id: "B", text: "Aurora Serverless v2 with a minimum of 2 and a maximum of 16 Aurora capacity units." },
+      { id: "C", text: "Aurora with a memory-optimised provisioned DB instance class." },
+      { id: "D", text: "Amazon RDS for MySQL sized with 4 GiB of memory." }
+    ],
+    correct: ["A"],
+    explanation:
+      "An Aurora capacity unit is roughly 2 GiB of memory plus the matching CPU and networking, so a 2–16 GiB range maps to 1–8 ACUs. Serverless v2 then scales within that band in fine increments, which suits traffic that spikes and falls to nothing.",
+    whyWrong: {
+      B: "This reads the GiB figures as if they were ACUs. 2–16 ACUs is 4–32 GiB, so the floor never scales down as far as it should and the ceiling is double what is needed.",
+      C: "A provisioned instance class is a fixed size, which either over-provisions during quiet periods or under-provisions during spikes.",
+      D: "RDS for MySQL has fixed compute and memory too, and 4 GiB is below the workload's 16 GiB peak."
+    }
+  },
+
+  {
+    id: "perf-039",
+    domain: "Design High-Performing Architectures",
+    topic: "Aurora Serverless capacity planning",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An Aurora Serverless v2 cluster is configured with a minimum of 8 ACUs. The workload is idle overnight, yet the bill shows steady charges through those hours. What explains this and what should change?",
+    options: [
+      { id: "A", text: "The minimum capacity sets a floor the cluster never scales below; lower the minimum so it can scale down when idle." },
+      { id: "B", text: "Serverless v2 always bills the maximum capacity; lower the maximum." },
+      { id: "C", text: "Serverless v2 cannot scale down at all; migrate to a provisioned instance and stop it overnight." },
+      { id: "D", text: "Storage charges dominate; enable a lifecycle policy on the cluster volume." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Serverless v2 bills for the capacity actually in use, but never scales below the configured minimum. A minimum of 8 ACUs means roughly 16 GiB of memory is held and billed continuously, so the floor is what to lower.",
+    whyWrong: {
+      B: "The maximum is a ceiling, not a billing basis; capacity is billed as consumed between the floor and ceiling.",
+      C: "Scaling down is exactly what Serverless v2 does — down to the configured minimum.",
+      D: "Storage is billed separately by volume and has no lifecycle policy; it does not explain steady compute charges."
+    }
+  },
+
+  {
+    id: "perf-040",
+    domain: "Design High-Performing Architectures",
+    topic: "Serverless compute with Lambda",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A team is moving container-based Java services to AWS Lambda but is concerned about cold starts and tail latency. Invocation volume is uneven, with long quiet periods. Which option minimises cold starts most cost-effectively?",
+    options: [
+      { id: "A", text: "Enable Lambda SnapStart." },
+      { id: "B", text: "Enable provisioned concurrency on the function." },
+      { id: "C", text: "Configure response streaming on the function." },
+      { id: "D", text: "Move dependencies into Lambda layers." }
+    ],
+    correct: ["A"],
+    explanation:
+      "SnapStart takes an encrypted snapshot of the initialised execution environment when a version is published and restores from that cache on invocation, so the expensive JVM initialisation is skipped. There is no charge for idle capacity, which matters when the function is quiet for long stretches.",
+    whyWrong: {
+      B: "Provisioned concurrency removes cold starts by keeping environments warm, but you pay for that capacity continuously — poor value when invocations drop to zero for long periods.",
+      C: "Response streaming improves time to first byte for large responses. It does nothing about initialisation time, which is what dominates here.",
+      D: "Layers help with packaging and reuse; they may trim startup slightly but do not address JVM initialisation."
+    }
+  },
+
+  {
+    id: "perf-041",
+    domain: "Design High-Performing Architectures",
+    topic: "Serverless compute with Lambda",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A Python Lambda function behind a customer-facing API must never serve a cold start during business hours, when traffic is steady and predictable. Cost outside those hours is not a concern because the function is barely invoked. What should be configured?",
+    options: [
+      { id: "A", text: "Provisioned concurrency, scheduled to apply during business hours via Application Auto Scaling." },
+      { id: "B", text: "Lambda SnapStart on the function." },
+      { id: "C", text: "Reserved concurrency set to the expected peak." },
+      { id: "D", text: "A larger memory allocation." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Provisioned concurrency keeps a set number of environments initialised and ready, which is the only way to guarantee no cold start. Scheduling it through Application Auto Scaling means paying for warm capacity only during the hours that need it.",
+    whyWrong: {
+      B: "SnapStart is a Java runtime feature; it does not apply to a Python function.",
+      C: "Reserved concurrency caps and guarantees how many executions may run concurrently. It pre-initialises nothing, so cold starts remain.",
+      D: "More memory speeds execution and can shorten initialisation slightly, but it does not eliminate cold starts."
+    }
+  },
+
+  {
+    id: "perf-042",
+    domain: "Design High-Performing Architectures",
+    topic: "CloudFront and content delivery",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A high-traffic static site on S3 behind CloudFront has its default TTL set to 10 seconds, so almost nothing is cached. The company wants real caching but must not serve stale content for more than a few minutes after a deployment. What should be configured?",
+    options: [
+      { id: "A", text: "Raise the CloudFront default TTL to about 4 minutes and set Cache-Control headers on the S3 objects to match." },
+      { id: "B", text: "Set a default TTL of 4 minutes on the S3 bucket." },
+      { id: "C", text: "Add a Lambda@Edge function on viewer response that injects an Expires header." },
+      { id: "D", text: "Use an S3 Lifecycle policy that deletes objects older than 7 days so edge caches are purged." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Cache duration is governed by the distribution's TTL settings together with the origin's Cache-Control headers. Setting both to a few minutes gives genuine caching while bounding how long a deployment can go unnoticed — and an invalidation can still flush immediately when needed.",
+    whyWrong: {
+      B: "S3 has no TTL setting. Cache behaviour is expressed through object headers and the CloudFront distribution.",
+      C: "Lambda@Edge could inject headers, but it adds an execution on every response to do what the distribution and origin headers already do.",
+      D: "Lifecycle policies delete objects from the bucket. They neither expire CloudFront's cache nor relate to content freshness."
+    }
+  },
+
+  {
+    id: "perf-043",
+    domain: "Design High-Performing Architectures",
+    topic: "Data transfer and migration services",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "An on-premises SMB file server holds large files that are accessed heavily for their first 10 days and then effectively never — though they must remain retrievable within 12 hours. The company wants the storage moved to AWS while the application keeps using an SMB share. Which solution fits?",
+    options: [
+      { id: "A", text: "Deploy an Amazon S3 File Gateway and apply an S3 Lifecycle rule transitioning objects to S3 Glacier Deep Archive after 10 days." },
+      { id: "B", text: "Deploy an Amazon FSx File Gateway and apply an S3 Lifecycle rule transitioning objects to Glacier Deep Archive after 10 days." },
+      { id: "C", text: "Give users direct access to Amazon S3 and transition objects to Glacier Flexible Retrieval after 10 days." },
+      { id: "D", text: "Run an AWS DataSync task that transfers files older than 10 days to AWS." }
+    ],
+    correct: ["A"],
+    explanation:
+      "S3 File Gateway presents an SMB or NFS share on premises while storing the data as S3 objects, so the application is unchanged and lifecycle rules apply. Deep Archive is the cheapest class whose standard retrieval completes within 12 hours, which is exactly the stated tolerance.",
+    whyWrong: {
+      B: "FSx File Gateway provides low-latency access to Amazon FSx file systems, not to S3, so S3 lifecycle rules do not apply to it.",
+      C: "S3 is object storage and cannot be mounted as an SMB share, and Glacier Flexible Retrieval costs more than Deep Archive for a 12-hour tolerance.",
+      D: "DataSync transfers data on a schedule but cannot select files by age, and it leaves the application without its SMB share."
+    }
+  },
+
+  {
+    id: "cost-034",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Environment scheduling and idle resources",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An internal application runs on EC2 with an Amazon RDS for PostgreSQL database, and is used only during working hours on weekdays. The company wants to cut cost with minimal operational overhead. Which solution fits best?",
+    options: [
+      { id: "A", text: "Deploy the Instance Scheduler on AWS solution and configure start and stop schedules for the EC2 and RDS instances." },
+      { id: "B", text: "Purchase Reserved Instances for both EC2 and RDS." },
+      { id: "C", text: "Purchase a Compute Savings Plan covering EC2 and RDS." },
+      { id: "D", text: "Create a CloudWatch alarm on low CPU that invokes a Lambda function to stop the instances." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Instance Scheduler on AWS is a published CloudFormation solution that starts and stops EC2 and RDS instances on a schedule you define. For a weekday, working-hours application it removes roughly two-thirds of the running hours, and it is deployed rather than built.",
+    whyWrong: {
+      B: "Reserved Instances commit to paying around the clock, which forfeits the benefit for something running about 50 hours a week.",
+      C: "Savings Plans likewise assume continuous usage, and Compute Savings Plans do not apply to RDS instances at all.",
+      D: "Stopping on low CPU is a proxy for a schedule and a dangerous one — a quiet mid-morning could shut the database down during working hours."
+    }
+  },
+
+  {
+    id: "cost-035",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "EBS snapshot and volume cost",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A cost report shows a sharp rise in spending on io2 Block Express volumes attached to production instances. The team wants to right-size the volumes using real usage data, without application downtime. Which TWO actions achieve this?",
+    options: [
+      { id: "A", text: "Review IOPS and throughput metrics for the volumes with CloudWatch." },
+      { id: "B", text: "Change volume size, type or provisioned performance with the EC2 ModifyVolume operation." },
+      { id: "C", text: "Lower EBS performance through the EC2 ModifyInstanceAttribute operation." },
+      { id: "D", text: "Apply an S3 Lifecycle policy to archive infrequently accessed backups." },
+      { id: "E", text: "Create a CloudWatch billing alarm for EBS charges." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Right-sizing needs evidence and then a change. CloudWatch exposes the per-volume IOPS and throughput actually consumed, which shows how much provisioned performance is being paid for and not used. Elastic Volumes then applies the change through ModifyVolume while the volume stays attached and in service.",
+    whyWrong: {
+      C: "Instance attributes govern the instance, not the provisioned performance of an attached EBS volume.",
+      D: "S3 lifecycle rules apply to objects in S3 and have no effect on EBS spending.",
+      E: "A billing alarm reports that costs rose. It provides no per-volume evidence and changes nothing."
+    }
+  },
+
+  {
+    id: "cost-036",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Right-sizing and cost visibility",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A finance team wants to be alerted when spending on any service deviates from its normal pattern — for example a service that suddenly costs several times its usual daily amount — without setting a fixed threshold per service. Which option meets this?",
+    options: [
+      { id: "A", text: "Create a cost monitor with AWS Cost Anomaly Detection and subscribe the team to its alerts." },
+      { id: "B", text: "Create a zero-spend budget template in AWS Budgets." },
+      { id: "C", text: "Use Cost Explorer with multi-year data at monthly granularity." },
+      { id: "D", text: "Create a CloudWatch alarm on the EstimatedCharges metric." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Cost Anomaly Detection applies machine learning to each monitored dimension's spending history, accounting for seasonality and growth, and alerts only when actual spend deviates meaningfully. That is what removes the need for a hand-set threshold per service.",
+    whyWrong: {
+      B: "A zero-spend budget alerts when spending exceeds the Free Tier. It is a fixed threshold and unrelated to anomaly detection.",
+      C: "Cost Explorer is for analysis after the fact and does not alert.",
+      D: "An EstimatedCharges alarm fires on a fixed dollar threshold and cannot distinguish an anomaly from ordinary growth."
+    }
   }
 
 ];
