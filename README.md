@@ -17,7 +17,7 @@ rules, and its own adaptive progress. Working on SAA never moves a number on DVA
 
 | Path | Code | Exam | Bank |
 |---|---|---|---|
-| Solutions Architect – Associate | SAA-C03 | 65q / 130min / 720 to pass | 125 questions, all 55 subjects |
+| Solutions Architect – Associate | SAA-C03 | 65q / 130min / 720 to pass | 149 questions, all 59 subjects |
 | Developer – Associate | DVA-C02 | 65q / 130min / 720 to pass | 8 questions, 8 of 33 subjects |
 | Solutions Architect – Professional | SAP-C02 | 75q / 180min / 750 to pass | 16 questions, 16 of 32 subjects |
 | DevOps Engineer – Professional | DOP-C02 | 75q / 180min / 750 to pass | 17 questions, 17 of 31 subjects |
@@ -332,7 +332,7 @@ adjacent pair ΔE 8.4 protan) and contrast all pass.
 ## Current status
 
 - **149 syllabus subjects** across the four paths (SAA 53, DVA 33, SAP 32, DOP 31).
-- **166 questions**: 125 SAA-C03 (all 55 subjects), 8 DVA-C02 (8 of 33), 16 SAP-C02
+- **190 questions**: 149 SAA-C03 (all 59 subjects), 8 DVA-C02 (8 of 33), 16 SAP-C02
   (16 of 32), 17 DOP-C02 (17 of 31). Every path is practiceable.
 - SAA domain mix matches the real blueprint exactly (30/26/24/20) and builds a
   full-length 65-question mock.
