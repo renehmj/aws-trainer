@@ -326,6 +326,9 @@
     <button class="navi active" data-view="dashboard">
       <svg viewBox="0 0 16 16"><rect class="solid" x="2" y="2" width="5.4" height="5.4" rx="1.2"/><rect class="solid" x="8.6" y="2" width="5.4" height="5.4" rx="1.2"/><rect class="solid" x="2" y="8.6" width="5.4" height="5.4" rx="1.2"/><rect class="solid" x="8.6" y="8.6" width="5.4" height="5.4" rx="1.2"/></svg>
       Dashboard</button>
+    <button class="navi" data-view="measure">
+      <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.7"/><circle class="solid" cx="8" cy="8" r="1"/></svg>
+      Measure</button>
     <button class="navi" data-view="topics">
       <svg viewBox="0 0 16 16"><circle class="solid" cx="3" cy="4" r="1.3"/><path d="M6.5 4h7.5"/><circle class="solid" cx="3" cy="8" r="1.3"/><path d="M6.5 8h7.5"/><circle class="solid" cx="3" cy="12" r="1.3"/><path d="M6.5 12h7.5"/></svg>
       Subjects</button>
@@ -398,6 +401,51 @@
       <p class="sub">Click any subject to work on it.</p>
       <div id="weakChart"></div>
     </div>
+  </section>
+
+  <!-- ===================== MEASURE ===================== -->
+  <section id="measure" class="view">
+
+    <div class="card">
+      <h2>Am I ready?</h2>
+      <p class="sub">Five gates, all of which must pass before sitting the real exam. The bar is
+        deliberately set above the pass mark: clearing 72% once is not the same as being ready.</p>
+      <div class="hero">
+        <div>
+          <div class="figure" id="readyFig">—</div>
+          <div class="chip" id="readyChip"><i></i><span id="readyWord">no data</span></div>
+          <p class="small muted" id="readyGap" style="margin-top:14px"></p>
+        </div>
+        <div id="readyGates"></div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <h2>Domain floors</h2>
+        <p class="sub">First-attempt accuracy per domain. The marker is the 70% floor — a weak
+          domain can sink you even when the average looks fine.</p>
+        <div id="floorChart"></div>
+      </div>
+      <div class="card">
+        <h2>How much have you seen?</h2>
+        <p class="sub">Accuracy over a handful of questions is noise. Coverage is what makes the
+          number trustworthy.</p>
+        <div id="covChart"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Mock evidence</h2>
+      <p class="sub" id="mockEvSub">Readiness needs two consecutive mocks at or above the pass mark.</p>
+      <div id="mockEv"></div>
+    </div>
+
+    <div class="card" id="calCard">
+      <h2>Read this before trusting the number</h2>
+      <div id="calNote"></div>
+    </div>
+
   </section>
 
   <!-- ===================== SUBJECTS ===================== -->
@@ -545,8 +593,8 @@ const PATH_COLOR = {
 const pathColor = id => PATH_COLOR[id] || "#3987e5";
 
 const VIEW_TITLE = {
-  dashboard: "Dashboard", topics: "Subjects", practice: "Adaptive practice",
-  mock: "Mock exam", review: "Review missed", data: "Data"
+  dashboard: "Dashboard", measure: "Exam readiness", topics: "Subjects",
+  practice: "Adaptive practice", mock: "Mock exam", review: "Review missed", data: "Data"
 };
 
 let CERT, BANK = [], byId = {}, DOMAINS = [], DW = {}, TOPICS = [], S;
@@ -618,6 +666,9 @@ function pickWeighted(pool){
 function record(q, wasCorrect){
   S.seq += 1;
   const st = S.questions[q.id] || (S.questions[q.id] = {attempts:0, correct:0, lastSeen:0});
+  // Readiness is judged on first sight only — a question you have already been
+  // shown the answer to tells you nothing about how you will do on exam day.
+  if(st.attempts === 0) st.first = wasCorrect ? 1 : 0;
   st.attempts += 1; if(wasCorrect) st.correct += 1; st.lastSeen = S.seq;
   const k = tkey(q);
   const t = S.topics[k] || (S.topics[k] = {attempts:0, correct:0});
@@ -1796,6 +1847,203 @@ document.getElementById("btnReset").addEventListener("click", () => {
   S = blank(); save(); setCert(CERT.id); msg("Progress reset for " + CERT.id + ".", true);
 });
 
+/* ======================= readiness measurement =======================
+ * Judged on FIRST-ATTEMPT answers only. Repeats are excluded: once you
+ * have seen the explanation, getting it right measures recall, not skill.
+ *
+ * The bar sits above the pass mark on purpose. Passing needs ~72% on the
+ * day; aiming at 72% in practice leaves no room for unfamiliar phrasing.
+ * ==================================================================== */
+
+const READY_BAR = {sample:100, fresh:0.85, floor:0.70, coverage:0.60, mocks:2};
+
+/* first-attempt outcome for one question, or null if unknowable.
+ * Progress recorded before `first` existed is inferred where it can be:
+ * a question with exactly one attempt is by definition a first attempt. */
+function firstOf(st){
+  if(st.first === 0 || st.first === 1) return st.first;
+  if(st.attempts === 1) return st.correct >= 1 ? 1 : 0;
+  return null;
+}
+
+function freshRows(){
+  const acc = {}; DOMAINS.forEach(d => acc[d] = {d, n:0, c:0});
+  Object.entries(S.questions).forEach(([id, st]) => {
+    const q = byId[id]; if(!q || !acc[q.domain]) return;
+    const f = firstOf(st); if(f === null) return;
+    acc[q.domain].n += 1; if(f) acc[q.domain].c += 1;
+  });
+  return DOMAINS.map(d => {
+    const r = acc[d];
+    return {d:r.d, n:r.n, c:r.c, acc: r.n ? r.c/r.n : null,
+            qs: BANK.filter(q => q.domain === r.d).length};
+  });
+}
+
+function readiness(){
+  const rows  = freshRows();
+  const n     = rows.reduce((a,r) => a + r.n, 0);
+  const c     = rows.reduce((a,r) => a + r.c, 0);
+  const fresh = n ? c/n : null;
+
+  const seen = Object.keys(S.questions).filter(id => byId[id]).length;
+  const cov  = BANK.length ? seen / BANK.length : 0;
+
+  const h       = S.history;
+  const last    = h.slice(-READY_BAR.mocks);
+  const mocksOk = h.length >= READY_BAR.mocks &&
+                  last.every(x => x.score >= CERT.exam.pass);
+
+  const untested = rows.filter(r => r.qs > 0 && r.n === 0);
+  const below    = rows.filter(r => r.acc !== null && r.acc < READY_BAR.floor);
+  const floorsOk = untested.length === 0 && below.length === 0 && n > 0;
+
+  const gates = [
+    {label:"Enough evidence", pass: n >= READY_BAR.sample,
+     p: Math.min(100, n / READY_BAR.sample * 100),
+     v: n + " of " + READY_BAR.sample + " first-attempt answers",
+     why:"Below this, accuracy swings too much to mean anything."},
+
+    {label:"First-attempt accuracy", pass: fresh !== null && fresh >= READY_BAR.fresh,
+     p: fresh === null ? 0 : fresh * 100, marker: READY_BAR.fresh * 100,
+     v: fresh === null ? "no data yet" : Math.round(fresh*100) + "% · need 85%",
+     why:"The buffer above the ~72% pass mark absorbs exam-day variance."},
+
+    {label:"Every domain above 70%", pass: floorsOk,
+     p: rows.length ? (rows.length - untested.length - below.length) / rows.length * 100 : 0,
+     v: untested.length ? untested.length + " domain(s) untested"
+        : below.length  ? below.length + " below the floor"
+        : n ? "all " + rows.length + " clear" : "no data yet",
+     why:"You can pass on average while one weak domain quietly eats the margin."},
+
+    {label:"Bank coverage", pass: cov >= READY_BAR.coverage,
+     p: cov * 100, marker: READY_BAR.coverage * 100,
+     v: seen + " of " + BANK.length + " questions seen · need " +
+        Math.round(READY_BAR.coverage*100) + "%",
+     why:"A high score on a small slice of the bank is not evidence."},
+
+    {label:"Mock exams", pass: mocksOk,
+     p: Math.min(100, h.length / READY_BAR.mocks * 100),
+     v: !h.length ? "none taken"
+        : h.length + " taken · last " + h[h.length-1].score +
+          " (pass " + CERT.exam.pass + ")",
+     why:"Two consecutive passes under time, not one lucky run."}
+  ];
+
+  const passed  = gates.filter(g => g.pass).length;
+  const verdict = passed === gates.length ? {word:"Ready",        color:"var(--good)"}
+                : passed >= 3             ? {word:"Getting there", color:"var(--warn)"}
+                :                           {word:"Not ready",    color:"var(--crit)"};
+  return {gates, passed, verdict, rows, fresh, n, cov, seen, mocksOk, h};
+}
+
+function refreshMeasure(){
+  const r = readiness();
+
+  document.getElementById("readyFig").innerHTML =
+    r.passed + '<small> / ' + r.gates.length + ' gates</small>';
+  const chip = document.getElementById("readyChip");
+  chip.style.color = r.verdict.color;
+  document.getElementById("readyWord").textContent = r.verdict.word;
+
+  const firstOpen = r.gates.find(g => !g.pass);
+  document.getElementById("readyGap").textContent = firstOpen
+    ? "Next gate: " + firstOpen.label.toLowerCase() + " — " + firstOpen.v + "."
+    : "Every gate is clear. Book it.";
+
+  document.getElementById("readyGates").innerHTML = r.gates.map(g =>
+    hbar((g.pass ? "&#10003; " : "&#183; ") + esc(g.label), g.p, esc(g.v),
+         {marker: g.marker, tip: g.label + "|" + g.v + "|" + g.why})
+  ).join("");
+  document.querySelectorAll("#readyGates [data-tip]").forEach(el => {
+    const [t,a,b] = el.dataset.tip.split("|");
+    el.addEventListener("mousemove", ev =>
+      showTip('<b>' + esc(t) + '</b><span>' + esc(a) + '<br>' + esc(b) + '</span>', ev));
+    el.addEventListener("mouseleave", hideTip);
+  });
+  tableToggle(document.getElementById("readyGates"), () =>
+    '<table class="tv"><thead><tr><th>Gate</th><th>Status</th><th>Where you are</th></tr></thead><tbody>' +
+    r.gates.map(g => '<tr><td>' + esc(g.label) + '</td><td>' + (g.pass ? "pass" : "not yet") +
+      '</td><td>' + esc(g.v) + '</td></tr>').join("") + '</tbody></table>');
+
+  /* ---- domain floors ---- */
+  const fh = document.getElementById("floorChart");
+  if(!BANK.length){ fh.innerHTML = emptyBank(); }
+  else{
+    fh.innerHTML = r.rows.map(row => hbar(
+      esc(shortDomain(row.d)),
+      row.acc === null ? 0 : row.acc*100,
+      row.n ? Math.round(row.acc*100) + "% · " + row.c + "/" + row.n + " first tries"
+            : "not attempted",
+      {marker: READY_BAR.floor*100}
+    )).join("");
+    tableToggle(fh, () =>
+      '<table class="tv"><thead><tr><th>Domain</th><th>First-attempt</th><th>Answered</th>' +
+      '<th>Floor</th></tr></thead><tbody>' +
+      r.rows.map(row => '<tr><td>' + esc(row.d) + '</td><td class="n">' +
+        (row.n ? Math.round(row.acc*100) + '%' : '—') + '</td><td class="n">' +
+        row.c + '/' + row.n + '</td><td>' +
+        (row.n === 0 ? 'untested' : row.acc >= READY_BAR.floor ? 'clear' : 'below') +
+        '</td></tr>').join("") + '</tbody></table>');
+  }
+
+  /* ---- coverage ---- */
+  const ch = document.getElementById("covChart");
+  const unseen = Math.max(0, BANK.length - r.seen);
+  ch.innerHTML = BANK.length
+    ? '<div class="stack">' +
+        (r.seen ? '<i style="width:' + (r.seen/BANK.length*100) + '%;background:var(--series)"></i>' : "") +
+        (unseen ? '<i style="width:' + (unseen/BANK.length*100) + '%;background:var(--inkmute)"></i>' : "") +
+      '</div><div class="legend">' +
+        '<span><i style="background:var(--series)"></i>seen · ' + r.seen + '</span>' +
+        '<span><i style="background:var(--inkmute)"></i>not yet · ' + unseen + '</span>' +
+      '</div><div style="margin-top:18px">' +
+      hbar("Coverage", r.cov*100, Math.round(r.cov*100) + "% of " + BANK.length +
+           " questions", {marker: READY_BAR.coverage*100}) + '</div>'
+    : emptyBank();
+
+  /* ---- mock evidence ---- */
+  const mh = document.getElementById("mockEv");
+  const e = CERT.exam;
+  if(!r.h.length){
+    mh.innerHTML = '<p class="empty">No mock taken on this path yet. ' +
+      e.questions + ' questions, ' + e.minutes + ' minutes — it is the only measurement ' +
+      'here taken under exam conditions.</p>';
+  }else{
+    const recent = r.h.slice(-5);
+    mh.innerHTML = '<div class="tiles">' + recent.map((x,i) =>
+      tile(x.score, "Attempt " + (r.h.length - recent.length + i + 1) +
+           (x.passed ? " · pass" : " · fail"),
+           x.passed ? "var(--good)" : "var(--crit)")).join("") + '</div>' +
+      '<p class="small muted" style="margin-top:14px">' +
+      (r.mocksOk
+        ? "Two consecutive passes recorded — this gate is clear."
+        : "Need " + READY_BAR.mocks + " consecutive attempts at or above " + e.pass +
+          ". " + (r.h.length < READY_BAR.mocks
+                  ? "Only " + r.h.length + " on record."
+                  : "The last two were not both passes.")) + '</p>';
+  }
+
+  /* ---- honest calibration note ---- */
+  const short = BANK.filter(q => q.question.split(/\s+/).length < 40).length;
+  const qual  = BANK.filter(q => /MOST|LEAST|BEST|cost-effective|operational overhead/.test(q.question)).length;
+  const multi = BANK.filter(q => q.type === "multi").length;
+  document.getElementById("calNote").innerHTML =
+    '<p class="small" style="margin:0 0 12px">This bank is currently <b>easier than the real ' +
+    esc(CERT.id) + ' exam</b>, so a score here reads high. Measured against how AWS writes ' +
+    'questions:</p>' +
+    '<table class="tv"><thead><tr><th>Trait</th><th>This bank</th><th>Real exam</th></tr></thead><tbody>' +
+    '<tr><td>Stems under 40 words</td><td class="n">' + Math.round(short/BANK.length*100) +
+      '%</td><td class="n">rare</td></tr>' +
+    '<tr><td>Has a MOST/LEAST qualifier</td><td class="n">' + Math.round(qual/BANK.length*100) +
+      '%</td><td class="n">~90%</td></tr>' +
+    '<tr><td>Multi-answer</td><td class="n">' + Math.round(multi/BANK.length*100) +
+      '%</td><td class="n">15-20%</td></tr>' +
+    '</tbody></table>' +
+    '<p class="small muted" style="margin:12px 0 0">Treat the gates as a floor, not a ceiling. ' +
+    'A commercial practice test is the harder yardstick until this bank is recalibrated.</p>';
+}
+
 /* ------------------------------ wiring ------------------------------ */
 
 function showView(v){
@@ -1803,6 +2051,7 @@ function showView(v){
   document.querySelectorAll(".view").forEach(x => x.classList.toggle("active", x.id === v));
   document.getElementById("viewTitle").textContent = VIEW_TITLE[v] || v;
   if(v === "dashboard") refreshDashboard();
+  if(v === "measure") refreshMeasure();
   if(v === "review") showReview();
   if(v === "practice" && !document.querySelector("#practiceHost .qtext")) nextPractice();
   if(v === "topics" && !session){ renderSidebar(); renderWorkHome(); }

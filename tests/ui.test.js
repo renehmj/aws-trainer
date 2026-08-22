@@ -41,8 +41,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(new Set(codeColors).size === 4, 'each path carries a distinct identity colour');
   ok(pathBtns.filter(b => b.classList.contains('on')).length === 1, 'exactly one path marked active');
   ok(d.getElementById('pathChip').textContent.includes('SAA-C03'), 'top bar chip names the active path');
-  ok(d.querySelectorAll('.navi').length === 6, 'rail carries the six study views');
-  ok(d.querySelectorAll('.navi svg').length === 6, 'every nav item has an icon');
+  // Counts here are derived, not hard-coded — the rail grows as views are added.
+  const naviBtns = [...d.querySelectorAll('.navi')];
+  ok(naviBtns.length === d.querySelectorAll('main .view').length,
+     `every view has a rail entry (${naviBtns.length})`);
+  ok(naviBtns.every(b => b.querySelector('svg')), 'every nav item has an icon');
+  ok(naviBtns.every(b => d.getElementById(b.dataset.view)),
+     'every nav item points at a view that exists');
+  ok(naviBtns.some(b => b.dataset.view === 'measure'), 'rail includes the Measure view');
   ok(d.getElementById('viewTitle').textContent === 'Dashboard', 'top bar shows the current view name');
   ok(d.documentElement.style.getPropertyValue('--accent').trim() === '#3987e5',
      'UI accent tinted with the active path colour');
@@ -544,6 +550,45 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const expectLetters = pq.correct.map(id => 'ABCDEFGH'[shownIds.indexOf(id)]).sort().join(', ');
   ok(d.querySelector('#practiceHost .fb h4').textContent.includes(expectLetters),
      `feedback names the displayed letter(s) "${expectLetters}", not the bank's ids`);
+
+  /* ---------- 14. Measure tab ---------- */
+  nav('measure'); await sleep(200);
+  ok(d.getElementById('measure').classList.contains('active'), 'Measure view opens');
+  ok(d.getElementById('viewTitle').textContent === 'Exam readiness', 'topbar titles the Measure view');
+  const gates = d.querySelectorAll('#readyGates .hrow');
+  ok(gates.length === 5, `five readiness gates rendered (${gates.length})`);
+  ok(/\/ 5 gates/.test(d.getElementById('readyFig').textContent),
+     'headline shows gates passed out of five');
+  const word = d.getElementById('readyWord').textContent;
+  ok(['Ready','Getting there','Not ready'].includes(word),
+     `verdict is a text label, not colour alone ("${word}")`);
+  ok(d.getElementById('readyGap').textContent.length > 0, 'names the next gate to clear');
+
+  const floors = d.querySelectorAll('#floorChart .hrow');
+  ok(floors.length === 4, `domain floor chart shows all 4 domains (${floors.length})`);
+  ok(d.querySelectorAll('#floorChart .track > u').length === 4,
+     'each domain bar carries the 70% floor marker');
+  ok(d.querySelectorAll('#covChart .stack > i').length >= 1, 'coverage stack rendered');
+  ok(d.querySelector('#calNote table.tv') !== null, 'calibration note renders its comparison table');
+
+  // every chart must have a table-view twin
+  ok(d.querySelectorAll('#readyGates .tvbtn').length === 1 &&
+     d.querySelectorAll('#floorChart .tvbtn').length === 1,
+     'gates and floors each offer a table view');
+
+  // re-entering must not stack duplicate table buttons
+  nav('dashboard'); await sleep(80); nav('measure'); await sleep(120);
+  ok(d.querySelectorAll('#readyGates .tvbtn').length === 1,
+     'revisiting Measure does not duplicate controls');
+
+  // readiness must be judged on first attempts only
+  const before = d.getElementById('readyFig').textContent;
+  ok(typeof before === 'string' && before.length > 0, 'readiness figure is populated');
+  const saved = JSON.parse(w.localStorage.getItem('trainer_v2::SAA-C03') || '{}');
+  const firsts = Object.values(saved.questions || {}).filter(x => x.first === 0 || x.first === 1);
+  ok(firsts.length > 0, 'first-attempt outcome is recorded on answered questions');
+  ok(firsts.every(x => x.first <= x.attempts),
+     'first-attempt flag is consistent with the attempt count');
 
   console.log('\n--- PASS (' + pass.length + ') ---');
   pass.forEach(p => console.log('  ok   ' + p));

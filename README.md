@@ -9,7 +9,7 @@ and no backend: every answer, score and mock result stays in your own browser.
 
 **Live: https://renehmj.github.io/aws-trainer/**
 
-166 original practice questions written from the official exam guides and AWS
+218 original practice questions written from the official exam guides and AWS
 documentation. Nothing here is copied from any commercial question bank.
 
 **Each path is fully separate** — its own question bank, its own domains and exam
@@ -17,7 +17,7 @@ rules, and its own adaptive progress. Working on SAA never moves a number on DVA
 
 | Path | Code | Exam | Bank |
 |---|---|---|---|
-| Solutions Architect – Associate | SAA-C03 | 65q / 130min / 720 to pass | 149 questions, all 59 subjects |
+| Solutions Architect – Associate | SAA-C03 | 65q / 130min / 720 to pass | 177 questions, all 59 subjects |
 | Developer – Associate | DVA-C02 | 65q / 130min / 720 to pass | 8 questions, 8 of 33 subjects |
 | Solutions Architect – Professional | SAP-C02 | 75q / 180min / 750 to pass | 16 questions, 16 of 32 subjects |
 | DevOps Engineer – Professional | DOP-C02 | 75q / 180min / 750 to pass | 17 questions, 17 of 31 subjects |
@@ -193,6 +193,12 @@ edits are instant.
   by domain with the readiness marker, subject-mastery breakdown, a mock-score trend
   line with the pass mark drawn in, and clickable weakest subjects. Every chart has a
   table view.
+- **Measure** — the readiness verdict. Five gates that must all clear before booking the
+  real exam: 100+ first-attempt answers, 85% first-attempt accuracy, every domain above a
+  70% floor, 60% bank coverage, and two consecutive mock passes. Judged on **first
+  attempts only** — a repeat of a question whose explanation you have already read
+  measures recall, not skill. Includes a standing note on how this bank's difficulty
+  compares with the real exam, so the verdict is never read as more than it is.
 - **Subjects** — a permanent left sidebar listing every subject (`domain :: topic`)
   grouped by domain, each with a status dot and current accuracy. Click one to open an
   adaptive session on it; the sidebar stays visible so you can switch subjects
