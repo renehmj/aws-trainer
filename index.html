@@ -644,10 +644,37 @@ function setCert(id){
 
 /* ---------------------------- question UI ---------------------------- */
 
+/* Options are shuffled on every render. The bank was authored with the correct
+ * answer written first, so without this the answer sits at position A about
+ * 93% of the time and you learn the position instead of the material. The
+ * option's original id stays on data-id for grading; the letter shown to the
+ * reader is purely positional. */
+function shuffleOptions(options){
+  const a = options.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const LETTERS = "ABCDEFGH";
+
 function renderQuestion(host, q, opts){
   opts = opts || {};
   const multi = q.type === "multi";
   const sel = new Set(opts.answer || []);
+
+  // A caller that must re-render the same question identically (the mock exam,
+  // and its answer review) passes the order it recorded the first time.
+  const order = (opts.order && opts.order.length === q.options.length)
+    ? opts.order.map(id => q.options.find(o => o.id === id)).filter(Boolean)
+    : shuffleOptions(q.options);
+  if(order.length !== q.options.length) order.push(...q.options.filter(o => !order.includes(o)));
+  if(opts.onOrder) opts.onOrder(order.map(o => o.id));
+
+  const letterOf = {};
+  order.forEach((o, i) => letterOf[o.id] = LETTERS[i]);
+
   host.innerHTML =
     '<div class="qmeta">' +
       '<span class="tag dom">' + esc(shortDomain(q.domain)) + '</span>' +
@@ -657,11 +684,11 @@ function renderQuestion(host, q, opts){
       (multi ? '<span class="tag">choose ' + q.correct.length + '</span>' : '') +
     '</div>' +
     '<div class="qtext">' + esc(q.question) + '</div>' +
-    '<div class="opts">' + q.options.map(o =>
+    '<div class="opts">' + order.map((o, i) =>
       '<label class="opt" data-id="' + o.id + '">' +
         '<input type="' + (multi ? "checkbox" : "radio") + '" name="opt" value="' + o.id + '"' +
           (sel.has(o.id) ? " checked" : "") + (opts.locked ? " disabled" : "") + '>' +
-        '<span class="k">' + o.id + '</span><span>' + esc(o.text) + '</span>' +
+        '<span class="k">' + LETTERS[i] + '</span><span>' + esc(o.text) + '</span>' +
       '</label>').join("") +
     '</div>' +
     (opts.locked ? '' : '<div class="actions"><button class="act" data-submit>Submit answer</button></div>') +
@@ -691,10 +718,14 @@ function renderQuestion(host, q, opts){
       if(q.correct.includes(id)) el.classList.add("correct");
       else if(picked.includes(id)) el.classList.add("wrong");
     });
-    const wrongs = Object.entries(q.whyWrong || {}).filter(([k]) => !q.correct.includes(k));
+    // Feedback must speak in the letters actually shown, not the bank's ids.
+    const wrongs = order
+      .filter(o => !q.correct.includes(o.id) && (q.whyWrong || {})[o.id])
+      .map(o => [letterOf[o.id], q.whyWrong[o.id]]);
+    const answerLetters = q.correct.map(id => letterOf[id]).sort().join(", ");
     host.querySelector("[data-fb]").innerHTML =
       '<div class="fb ' + (ok ? "ok" : "no") + '">' +
-        '<h4>' + (ok ? "Correct" : "Incorrect — answer: " + q.correct.join(", ")) + '</h4>' +
+        '<h4>' + (ok ? "Correct" : "Incorrect — answer: " + answerLetters) + '</h4>' +
         '<p>' + esc(q.explanation) + '</p>' +
         (wrongs.length ? '<div class="small muted">Why the others are wrong</div><ul class="small">' +
           wrongs.map(([k,v]) => '<li><strong>' + k + '</strong> — ' + esc(v) + '</li>').join("") + '</ul>' : '') +
@@ -961,7 +992,9 @@ function startMock(){
   const set = buildMockSet();
   if(!set.length) return;
   const secs = Math.round(CERT.exam.minutes * 60 * (set.length / CERT.exam.questions));
-  mock = {set, i:0, answers:{}, flags:new Set(), left:secs};
+  // orders keeps each question's shuffled option layout stable for the whole
+  // exam, so navigating away and back — and the answer review — match.
+  mock = {set, i:0, answers:{}, orders:{}, flags:new Set(), left:secs};
   document.getElementById("mockIntro").style.display = "none";
   document.getElementById("mockResult").innerHTML = "";
   document.getElementById("mockRun").style.display = "";
@@ -984,6 +1017,8 @@ function showMock(){
   document.getElementById("mockPos").textContent = "Question " + (mock.i+1) + " of " + mock.set.length;
   renderQuestion(document.getElementById("mockHost"), q, {
     answer: mock.answers[q.id] || [],
+    order: mock.orders[q.id],
+    onOrder(ids){ mock.orders[q.id] = ids; },
     onChange(ids){ mock.answers[q.id] = ids; paintPalette(); },
     graded: false
   });
@@ -1051,7 +1086,8 @@ function submitMock(){
       wrap.innerHTML = '<div class="small muted">Question ' + (i+1) + '</div>';
       const inner = document.createElement("div");
       wrap.appendChild(inner); host.appendChild(wrap);
-      renderQuestion(inner, q, {locked:true, answer: mock.answers[q.id] || []});
+      renderQuestion(inner, q, {locked:true, answer: mock.answers[q.id] || [],
+                               order: mock.orders[q.id]});
     });
   });
   refreshDashboard();

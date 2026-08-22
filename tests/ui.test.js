@@ -495,6 +495,56 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
      'bullet-prefixed options parsed and bullets stripped');
   ok(bd[0].querySelectorAll('ol li.ans').length === 1, 'answer line still honoured alongside plain options');
 
+  /* ---------- 13. option order is shuffled, and stable within a mock ---------- */
+  nav('mock'); await sleep(120);
+  d.getElementById('mockStart').click(); await sleep(300);
+  const palN = d.querySelectorAll('#mockPal button').length;
+
+  // the mock draws from the built-in bank plus anything pasted in earlier
+  const pasted = JSON.parse(w.localStorage.getItem('trainer_v2::added::SAA-C03') || '[]');
+  const lookup = [...BANKS['SAA-C03'], ...pasted];
+
+  const positions = {};
+  let firstQOrder = null;
+  for (let i = 0; i < palN; i++) {
+    d.querySelectorAll('#mockPal button')[i].click(); await sleep(0);
+    const qid = idOf('#mockHost');
+    const mq = lookup.find(x => x.id === qid);
+    if (!mq) continue;
+    const shown = [...d.querySelectorAll('#mockHost .opt')].map(o => o.dataset.id);
+    if (i === 0) firstQOrder = shown.slice();
+    const idx = shown.indexOf(mq.correct[0]);
+    positions[idx] = (positions[idx] || 0) + 1;
+  }
+  const total = Object.values(positions).reduce((a,b) => a+b, 0);
+  const atA = (positions[0] || 0) / total;
+  ok(atA < 0.5, `correct answer is not stuck at position A (${(atA*100).toFixed(0)}% at A over ${total} questions)`);
+  ok(Object.keys(positions).length >= 3,
+     `correct answer appears in ${Object.keys(positions).length} different positions`);
+
+  // letters shown must be sequential A,B,C,... regardless of underlying ids
+  d.querySelectorAll('#mockPal button')[0].click(); await sleep(0);
+  const letters = [...d.querySelectorAll('#mockHost .opt .k')].map(e => e.textContent);
+  ok(letters.join('') === 'ABCDEFGH'.slice(0, letters.length),
+     'displayed letters are sequential from A');
+
+  // navigating away and back must preserve the shuffled layout
+  d.querySelectorAll('#mockPal button')[1].click(); await sleep(0);
+  d.querySelectorAll('#mockPal button')[0].click(); await sleep(0);
+  const backOrder = [...d.querySelectorAll('#mockHost .opt')].map(o => o.dataset.id);
+  ok(backOrder.join() === firstQOrder.join(), 'option order stays stable across mock navigation');
+
+  // feedback letters must match what was displayed
+  nav('practice'); await sleep(200);
+  const pq = lookup.find(x => x.id === idOf('#practiceHost'));
+  const shownIds = [...d.querySelectorAll('#practiceHost .opt')].map(o => o.dataset.id);
+  const wrongPick = shownIds.find(id => !pq.correct.includes(id));
+  d.querySelector(`#practiceHost .opt[data-id="${wrongPick}"] input`).click();
+  d.querySelector('#practiceHost [data-submit]').click(); await sleep(120);
+  const expectLetters = pq.correct.map(id => 'ABCDEFGH'[shownIds.indexOf(id)]).sort().join(', ');
+  ok(d.querySelector('#practiceHost .fb h4').textContent.includes(expectLetters),
+     `feedback names the displayed letter(s) "${expectLetters}", not the bank's ids`);
+
   console.log('\n--- PASS (' + pass.length + ') ---');
   pass.forEach(p => console.log('  ok   ' + p));
   if (fail.length) { console.log('\n--- FAIL (' + fail.length + ') ---'); fail.forEach(f => console.log('  FAIL ' + f)); }
