@@ -2024,24 +2024,43 @@ function refreshMeasure(){
                   : "The last two were not both passes.")) + '</p>';
   }
 
-  /* ---- honest calibration note ---- */
-  const short = BANK.filter(q => q.question.split(/\s+/).length < 40).length;
-  const qual  = BANK.filter(q => /MOST|LEAST|BEST|cost-effective|operational overhead/.test(q.question)).length;
-  const multi = BANK.filter(q => q.type === "multi").length;
+  /* ---- honest calibration note ----
+   * Targets are measured from 259 questions of commercial exam-style practice
+   * material, not estimated. Re-measure before changing them. */
+  const EXAM = {short:2, qual:37, multi:17, longest:25};
+  const words = t => t.split(/\s+/).length;
+  const shortN = BANK.filter(q => words(q.question) < 40).length;
+  const qualN  = BANK.filter(q => /\bMOST\b|\bLEAST\b|\bBEST\b|most cost-effective|least operational|best fulfill/i.test(q.question)).length;
+  const multiN = BANK.filter(q => q.type === "multi").length;
+  let longestN = 0, singleN = 0;
+  BANK.filter(q => q.type !== "multi").forEach(q => {
+    const lens = q.options.map(o => ({id:o.id, w:words(o.text)}));
+    const mx = Math.max.apply(null, lens.map(x => x.w));
+    const top = lens.filter(x => x.w === mx);
+    if(top.length === 1){ singleN++; if(q.correct.includes(top[0].id)) longestN++; }
+  });
+  const pcOf = (a,b) => b ? Math.round(a/b*100) : 0;
+  const sh = pcOf(shortN, BANK.length), ql = pcOf(qualN, BANK.length),
+        mu = pcOf(multiN, BANK.length), lo = pcOf(longestN, singleN);
+  const rowOf = (name, ours, target, bad) =>
+    '<tr><td>' + name + '</td><td class="n">' + ours + '%</td><td class="n">' + target +
+    '%</td><td style="color:' + (bad ? "var(--crit)" : "var(--good)") + '">' +
+    (bad ? "off" : "on target") + '</td></tr>';
   document.getElementById("calNote").innerHTML =
-    '<p class="small" style="margin:0 0 12px">This bank is currently <b>easier than the real ' +
-    esc(CERT.id) + ' exam</b>, so a score here reads high. Measured against how AWS writes ' +
-    'questions:</p>' +
-    '<table class="tv"><thead><tr><th>Trait</th><th>This bank</th><th>Real exam</th></tr></thead><tbody>' +
-    '<tr><td>Stems under 40 words</td><td class="n">' + Math.round(short/BANK.length*100) +
-      '%</td><td class="n">rare</td></tr>' +
-    '<tr><td>Has a MOST/LEAST qualifier</td><td class="n">' + Math.round(qual/BANK.length*100) +
-      '%</td><td class="n">~90%</td></tr>' +
-    '<tr><td>Multi-answer</td><td class="n">' + Math.round(multi/BANK.length*100) +
-      '%</td><td class="n">15-20%</td></tr>' +
+    '<p class="small" style="margin:0 0 12px">Measured against 259 questions of commercial ' +
+    'exam-style practice material. Where this bank is off, a score here reads higher than ' +
+    'you would score on the day.</p>' +
+    '<table class="tv"><thead><tr><th>Trait</th><th>This bank</th><th>Exam-style</th>' +
+    '<th>Status</th></tr></thead><tbody>' +
+    rowOf("Stems under 40 words", sh, EXAM.short, sh > 15) +
+    rowOf("Has a MOST/LEAST qualifier", ql, EXAM.qual, ql < 30) +
+    rowOf("Multi-answer", mu, EXAM.multi, mu < 13 || mu > 22) +
+    rowOf("Correct answer is the longest", lo, EXAM.longest, lo > 35) +
     '</tbody></table>' +
-    '<p class="small muted" style="margin:12px 0 0">Treat the gates as a floor, not a ceiling. ' +
-    'A commercial practice test is the harder yardstick until this bank is recalibrated.</p>';
+    '<p class="small muted" style="margin:12px 0 0">The last row is a tell: if the correct ' +
+    'answer is reliably the wordiest, you can score well without reading the scenario. ' +
+    'Chance is 25%.</p>';
+
 }
 
 /* ------------------------------ wiring ------------------------------ */
