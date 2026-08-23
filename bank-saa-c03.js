@@ -4633,6 +4633,490 @@ window.BANKS["SAA-C03"] = [
       C: "Standard Reserved Instances are the least flexible option, cannot be applied to Fargate or Lambda, and would leave the growing container spend undiscounted.",
       D: "Spot capacity can be reclaimed at short notice, which is unsuitable for a steady production baseline, and Spot is a capacity choice rather than a commitment discount."
     }
+  },
+
+  {
+    id: "sec-063",
+    domain: "Design Secure Architectures",
+    topic: "Application authentication with Cognito",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A retailer is launching a mobile application that lets shoppers sign in with an email address and password or with their existing Google account. After signing in, the application must upload photographs directly from the device to a prefix in an Amazon S3 bucket that is unique to each shopper. The development team does not want to embed long-lived credentials in the application or run authentication servers. Which combination should the architect use?",
+    options: [
+      { id: "A", text: "An Amazon Cognito user pool for sign-in and an identity pool that exchanges the pool token for temporary IAM credentials scoped to the user's prefix." },
+      { id: "B", text: "An Amazon Cognito user pool for sign-in, with the application calling S3 using an IAM user access key that is distributed with the mobile client." },
+      { id: "C", text: "An IAM Identity Center instance federated to Google, issuing each shopper a permission set that grants access to their own prefix in the bucket." },
+      { id: "D", text: "An API Gateway REST API with an IAM authorizer in front of S3, where each shopper is created as an IAM user at first sign-in." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A user pool handles sign-up, sign-in and the Google federation. The identity pool then trades the resulting token for temporary AWS credentials, and a role with a policy keyed on the substitution variable ${cognito-identity.amazonaws.com:sub} restricts each shopper to their own prefix. Nothing long-lived ships with the app.",
+    whyWrong: {
+      B: "Any credential shipped inside a mobile binary can be extracted, and a single access key cannot isolate one shopper's prefix from another's.",
+      C: "IAM Identity Center manages workforce access to AWS accounts and internal applications. It is not designed to authenticate large numbers of external consumers.",
+      D: "IAM users are a hard-limited, long-lived construct meant for internal principals; creating one per shopper does not scale and adds an account to manage for every customer."
+    }
+  },
+
+  {
+    id: "sec-064",
+    domain: "Design Secure Architectures",
+    topic: "Application authentication with Cognito",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A company exposes an internal reporting API through Amazon API Gateway. Employees already sign in to a corporate SAML identity provider, and the security team requires that the API validate a JSON Web Token on every request without the API's own code performing signature checks or maintaining a user directory. Group membership carried in the token must determine which endpoints a caller may reach. What should the architect configure?",
+    options: [
+      { id: "A", text: "An Amazon Cognito user pool federated to the SAML provider, attached to API Gateway as a Cognito authorizer with scopes mapped to the endpoints." },
+      { id: "B", text: "A Lambda authorizer on API Gateway that retrieves the signing keys from the SAML provider and verifies each token before allowing the request through." },
+      { id: "C", text: "An API Gateway resource policy that permits requests only from the corporate IP ranges, with the SAML assertion passed as a request header." },
+      { id: "D", text: "AWS WAF in front of API Gateway with a rule group that inspects the Authorization header and blocks requests carrying an invalid token." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A Cognito user pool can federate to a SAML provider and issue its own JWTs. Attaching it to API Gateway as a Cognito authorizer means the gateway validates the token signature, expiry and scopes before the request reaches any application code, and group claims can be mapped to scopes per method.",
+    whyWrong: {
+      B: "A Lambda authorizer works, but writing and maintaining signature verification is exactly the custom validation code the security team asked to avoid.",
+      C: "Source IP is a network control, not authentication, and an unverified assertion in a header proves nothing about the caller.",
+      D: "WAF filters on request patterns and rates. It cannot verify a token signature or evaluate group claims."
+    }
+  },
+
+  {
+    id: "sec-065",
+    domain: "Design Secure Architectures",
+    topic: "Organizations SCPs and guardrails",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A company uses AWS Organizations with all features enabled. To satisfy a data residency obligation, the security team must guarantee that no principal in any member account can create resources outside eu-west-1 and eu-central-1, including principals holding the AdministratorAccess policy. The team is drafting a service control policy attached to the organization root. Which TWO statements about this approach are correct? (Select TWO.)",
+    options: [
+      { id: "A", text: "The SCP restricts principals in member accounts even when their identity-based policy grants the action, because an SCP sets the maximum available permissions." },
+      { id: "B", text: "Principals in the management account are not affected by service control policies, so the management account needs a separate control." },
+      { id: "C", text: "An SCP grants permissions on its own, so member account principals will be able to use any action the SCP allows without an identity-based policy." },
+      { id: "D", text: "Global services such as IAM and Amazon CloudFront are unaffected by a Region condition, so the policy must exempt them or legitimate calls will fail." },
+      { id: "E", text: "Service control policies apply only to roles, so IAM users in member accounts would bypass the residency restriction entirely." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "An SCP is a permissions boundary for an account: it caps what identity-based policies can grant, so even an administrator is limited by it. The management account is the documented exception — SCPs never restrict its principals — so residency there must be enforced another way.",
+    whyWrong: {
+      C: "An SCP never grants permissions. A principal still needs an identity-based policy allowing the action; the SCP only defines the ceiling.",
+      D: "The observation about global services is a genuine design concern, but the fix is a NotAction exemption within the same policy rather than a statement about how SCPs apply.",
+      E: "SCPs apply to all IAM principals in a member account, users and roles alike, with the single exception of the account's root user in some cases."
+    }
+  },
+
+  {
+    id: "sec-066",
+    domain: "Design Secure Architectures",
+    topic: "Organizations SCPs and guardrails",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A platform team hands a development team its own AWS account and wants developers to create IAM roles freely for their applications, while guaranteeing that no role they create can ever be granted permissions beyond a defined set. Developers must not be able to remove or weaken that guarantee. The platform team wants the control to live inside the development account rather than depending on a change to the organization. Which mechanism should be used?",
+    options: [
+      { id: "A", text: "Require a permissions boundary on every role the developers create, enforced by a condition on their role-creation permission." },
+      { id: "B", text: "Attach a service control policy to the organizational unit that lists every action the development team is permitted to use." },
+      { id: "C", text: "Give the developers a managed policy containing the permitted actions and rely on code review to prevent them attaching anything broader." },
+      { id: "D", text: "Enable AWS Config rules in the account that detect over-permissive roles and raise findings in AWS Security Hub for the platform team." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A permissions boundary caps the effective permissions of a role regardless of the identity policy attached to it. Granting iam:CreateRole only under a condition requiring a specific boundary means developers can create roles freely but cannot create one that exceeds the ceiling, and cannot strip the boundary.",
+    whyWrong: {
+      B: "An SCP would work, but the requirement was explicitly for a control inside the account rather than an organization-level change.",
+      C: "Code review is a process control. Nothing technically prevents a developer attaching a broader policy.",
+      D: "Config detects a violation after it exists, which is monitoring rather than the guarantee the platform team asked for."
+    }
+  },
+
+  {
+    id: "sec-067",
+    domain: "Design Secure Architectures",
+    topic: "VPC connectivity: peering, Transit Gateway and VPN",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A consultancy has 200 staff working from home who need to reach private subnets in two VPCs in the same Region, using their corporate Active Directory credentials with multi-factor authentication. There is no data centre and no existing Direct Connect. Staff connect from laptops on domestic broadband, and usage is concentrated in working hours. Which solution meets these requirements MOST cost-effectively?",
+    options: [
+      { id: "A", text: "AWS Client VPN with a Client VPN endpoint associated to subnets in both VPCs, authenticating against the corporate directory through AWS Directory Service." },
+      { id: "B", text: "An AWS Site-to-Site VPN from each employee's home router to a virtual private gateway in each of the two VPCs." },
+      { id: "C", text: "A bastion host in a public subnet in each VPC, with staff connecting over SSH and RDP using key pairs issued by the consultancy." },
+      { id: "D", text: "AWS Verified Access with an application group per VPC, published to staff through a public endpoint and evaluated against directory group membership." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Client VPN is the managed remote-access VPN for individual users. It authenticates against Active Directory through AWS Directory Service, supports MFA, and bills per associated subnet hour plus per connected client hour, so concentrated working-hours usage keeps cost proportional.",
+    whyWrong: {
+      B: "Site-to-Site VPN connects networks, not roaming individuals; 200 tunnels from domestic routers would be unmanageable and far more expensive.",
+      C: "Bastion hosts expose SSH and RDP to the internet, provide no directory-integrated MFA by default, and give access to instances rather than the private networks.",
+      D: "Verified Access publishes individual applications over HTTPS. It does not give laptops network-level reach into private subnets."
+    }
+  },
+
+  {
+    id: "sec-068",
+    domain: "Design Secure Architectures",
+    topic: "VPC endpoints and private connectivity",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An operations team administers EC2 instances that sit in private subnets with no internet gateway and no NAT gateway, as required by a security standard that forbids inbound SSH from any source. The team still needs interactive shell access for troubleshooting, and every session must be logged for audit. Which approach satisfies these requirements?",
+    options: [
+      { id: "A", text: "Use AWS Systems Manager Session Manager with interface VPC endpoints for ssm, ssmmessages and ec2messages, and send session logs to Amazon S3 or CloudWatch Logs." },
+      { id: "B", text: "Deploy a bastion host in a public subnet, restrict its security group to the office CIDR, and enable VPC Flow Logs to record the sessions." },
+      { id: "C", text: "Attach an internet gateway route to the private subnets only for the SSH port, and record connections with AWS CloudTrail data events." },
+      { id: "D", text: "Use EC2 Instance Connect Endpoint with a security group rule permitting SSH from the endpoint, and audit access through VPC Flow Logs." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Session Manager reaches instances through the SSM Agent making outbound calls, so no inbound port is opened and no internet path is required once the three interface endpoints exist. Session activity can be streamed to S3 or CloudWatch Logs, which satisfies the audit requirement.",
+    whyWrong: {
+      B: "A bastion still requires an inbound SSH listener, which the standard forbids, and Flow Logs record connection metadata rather than session content.",
+      C: "Selectively routing a port through an internet gateway still exposes SSH to the internet, and CloudTrail data events do not capture shell sessions.",
+      D: "Instance Connect Endpoint avoids the public bastion but still relies on an inbound SSH rule, and Flow Logs again capture metadata only."
+    }
+  },
+
+  {
+    id: "res-056",
+    domain: "Design Resilient Architectures",
+    topic: "Event-driven patterns with EventBridge",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An insurance company processes claims through five sequential stages, each implemented as an AWS Lambda function. Some stages call a third-party service that intermittently times out and must be retried with exponential backoff, and one stage can take up to twenty minutes. Operations staff need to see exactly which stage a given claim reached when something fails. Which solution meets these requirements with the LEAST operational overhead?",
+    options: [
+      { id: "A", text: "Model the workflow as an AWS Step Functions state machine with Retry and Catch on the failing states." },
+      { id: "B", text: "Chain the Lambda functions by having each one invoke the next asynchronously, implementing retry and backoff logic inside each function." },
+      { id: "C", text: "Publish an EventBridge event at the end of each stage and subscribe the next Lambda function to it, using a dead-letter queue on each rule." },
+      { id: "D", text: "Place an Amazon SQS queue between each pair of stages and rely on the queue's visibility timeout and redrive policy to retry failures." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Step Functions is purpose-built for multi-stage workflows: retries with backoff and catch handlers are declarative, execution history shows precisely which state a given claim reached, and a Standard workflow runs for up to a year, so a twenty-minute stage is not a constraint.",
+    whyWrong: {
+      B: "Every function ends up carrying orchestration code, and there is no single place to see how far a claim progressed.",
+      C: "EventBridge decouples the stages but provides no execution view of an individual claim, so tracing one through five rules means correlating logs by hand.",
+      D: "Queues give retry and buffering but no workflow state, and a twenty-minute stage forces careful visibility-timeout tuning at every hop."
+    }
+  },
+
+  {
+    id: "res-057",
+    domain: "Design Resilient Architectures",
+    topic: "Decoupling with SQS",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A manufacturer is migrating a plant monitoring system to AWS. The existing application uses Apache ActiveMQ and depends on JMS features including message selectors and durable topic subscriptions. The company wants to move with as few application changes as possible and does not want to operate broker infrastructure. Which service should the architect choose?",
+    options: [
+      { id: "A", text: "Amazon MQ running ActiveMQ, which the existing JMS client can connect to unchanged." },
+      { id: "B", text: "Amazon SQS FIFO queues, with the application's JMS calls rewritten to use the SQS API and message group identifiers." },
+      { id: "C", text: "Amazon SNS topics with SQS subscriptions, reproducing durable topic behaviour through queue subscriptions per consumer." },
+      { id: "D", text: "Amazon Managed Streaming for Apache Kafka, with the JMS producers and consumers ported to the Kafka client libraries." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Amazon MQ is a managed broker that runs ActiveMQ or RabbitMQ and supports the standard protocols, including JMS with selectors and durable subscriptions. Migrating usually means repointing the connection string, which is the smallest possible change, with AWS operating the broker.",
+    whyWrong: {
+      B: "SQS has no JMS semantics: message selectors and durable topic subscriptions do not exist, so the messaging layer would have to be rewritten.",
+      C: "SNS with SQS fan-out can approximate topics, but it is a different programming model and still requires rewriting the application.",
+      D: "Kafka is a log-based streaming platform with its own client API and no JMS compatibility, making this the largest rewrite of the four."
+    }
+  },
+
+  {
+    id: "res-058",
+    domain: "Design Resilient Architectures",
+    topic: "Decoupling with SQS",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "An order service reads from an Amazon SQS standard queue and occasionally receives a malformed message that causes the consumer to throw an exception. The message becomes visible again after the visibility timeout and is reprocessed indefinitely, blocking throughput and filling the logs. The team wants poison messages set aside for inspection without losing them. Which TWO actions address this? (Select TWO.)",
+    options: [
+      { id: "A", text: "Configure a redrive policy on the source queue with a maxReceiveCount that sends repeat failures to a dead-letter queue." },
+      { id: "B", text: "Create a separate SQS queue to serve as the dead-letter queue and set an appropriate retention period on it for later inspection." },
+      { id: "C", text: "Reduce the visibility timeout on the source queue so failing messages return to the queue sooner and drain more quickly." },
+      { id: "D", text: "Switch the source queue to FIFO so that a failing message blocks its message group and stops interfering with other orders." },
+      { id: "E", text: "Enable server-side encryption on the queue so that malformed payloads are rejected by SQS before a consumer receives them." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "A dead-letter queue plus a redrive policy is the standard poison-message pattern: SQS tracks the receive count and, once it exceeds maxReceiveCount, moves the message to the DLQ where it is retained for investigation instead of cycling forever.",
+    whyWrong: {
+      C: "A shorter visibility timeout makes the message reappear faster, which increases the reprocessing rate rather than stopping it.",
+      D: "FIFO would make matters worse: a poison message blocks its entire message group until it is removed or expires.",
+      E: "Encryption protects data at rest and has no bearing on whether a payload is well formed."
+    }
+  },
+
+  {
+    id: "res-059",
+    domain: "Design Resilient Architectures",
+    topic: "Route 53 routing policies",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A payments company runs an active deployment behind an Application Load Balancer in eu-west-1 and a passive, permanently running copy behind an ALB in us-east-1. All traffic should reach eu-west-1 while it is healthy, and move to us-east-1 automatically within a few minutes if the primary becomes unavailable. Traffic must return to eu-west-1 once it recovers. Which Route 53 configuration meets this requirement?",
+    options: [
+      { id: "A", text: "Failover routing with eu-west-1 as primary and us-east-1 as secondary, each with a health check." },
+      { id: "B", text: "Latency-based routing with a record for each Region, so that clients are always sent to whichever endpoint currently responds fastest." },
+      { id: "C", text: "Weighted routing with the eu-west-1 record at weight 100 and the us-east-1 record at weight 0, adjusted manually during an incident." },
+      { id: "D", text: "Multivalue answer routing returning both ALB addresses, with health checks so unhealthy endpoints are omitted from the response." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Failover routing expresses exactly this active-passive intent. Route 53 returns the primary while its health check passes and switches to the secondary when it fails, reverting automatically on recovery. Health check interval and threshold determine how quickly that happens.",
+    whyWrong: {
+      B: "Latency routing optimises for proximity, so European clients could be sent to us-east-1 whenever it happens to be faster, which is not active-passive.",
+      C: "A weight of zero does suppress traffic, but changing weights during an incident is a manual step and the requirement was automatic failover.",
+      D: "Multivalue answer returns several healthy records for client-side selection. It spreads traffic rather than preferring one Region."
+    }
+  },
+
+  {
+    id: "res-060",
+    domain: "Design Resilient Architectures",
+    topic: "Multi-AZ vs multi-Region design",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A gaming company serves players in Europe and North America from a single Region. Player profile data lives in an Amazon DynamoDB table, and the company wants players on both continents to read and write their profiles with single-digit millisecond latency. The design must also keep the service available if one Region becomes unreachable. Which approach meets these requirements?",
+    options: [
+      { id: "A", text: "Convert the table to a DynamoDB global table with a replica in each of the two Regions." },
+      { id: "B", text: "Keep the single table and add DynamoDB Accelerator clusters in both Regions so that reads and writes are served from the local cache." },
+      { id: "C", text: "Keep the single table and create cross-Region read replicas of it, promoting a replica if the primary Region becomes unreachable." },
+      { id: "D", text: "Enable point-in-time recovery on the table and restore it into the second Region whenever a Regional failure is detected." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Global tables give a multi-active replica in each selected Region with last-writer-wins conflict resolution, so players read and write locally at low latency, and the surviving replica continues serving if a Region is lost.",
+    whyWrong: {
+      B: "DAX accelerates reads only and must sit in the same Region as the table, so remote writes still cross the ocean and a Regional failure still takes the table out.",
+      C: "DynamoDB has no cross-Region read replica construct; replication between Regions is what global tables provide.",
+      D: "Point-in-time recovery is a backup mechanism. Restoring a table takes far longer than a failover and loses recent writes."
+    }
+  },
+
+  {
+    id: "res-061",
+    domain: "Design Resilient Architectures",
+    topic: "Auto Scaling and health checks",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An Auto Scaling group sits behind an Application Load Balancer. A memory leak causes the application process on some instances to stop answering HTTP requests while the operating system continues running normally. The load balancer stops sending those instances traffic, but the Auto Scaling group leaves them in service and capacity quietly degrades. What should the architect change?",
+    options: [
+      { id: "A", text: "Set the Auto Scaling group's health check type to ELB rather than EC2." },
+      { id: "B", text: "Shorten the load balancer's health check interval and lower its unhealthy threshold so failures are detected sooner." },
+      { id: "C", text: "Add a target tracking scaling policy on average CPU utilisation so the group launches replacements when throughput drops." },
+      { id: "D", text: "Enable instance scale-in protection on the group so that healthy instances are never terminated during a scaling event." }
+    ],
+    correct: ["A"],
+    explanation:
+      "By default an Auto Scaling group uses EC2 status checks, which pass as long as the instance and its hypervisor are healthy. Switching the health check type to ELB makes the group act on the load balancer's application-level result and replace instances failing it.",
+    whyWrong: {
+      B: "Faster detection changes only how quickly the load balancer stops routing; the Auto Scaling group still never replaces the instance.",
+      C: "A CPU-based policy may add capacity but leaves the broken instances in the group consuming cost and skewing metrics.",
+      D: "Scale-in protection prevents termination, which is the opposite of what is needed here."
+    }
+  },
+
+  {
+    id: "perf-055",
+    domain: "Design High-Performing Architectures",
+    topic: "Containers on ECS, EKS and Fargate",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A team is containerising a stateless web API that receives unpredictable, spiky traffic. They want to run it on Amazon ECS without managing, patching or scaling any EC2 capacity, and they want to pay only for the resources each task consumes while it runs. The application has no requirement for GPUs, custom kernel parameters or persistent instance storage. Which launch configuration meets these requirements with the LEAST operational overhead?",
+    options: [
+      { id: "A", text: "Run the service on ECS with the Fargate launch type, sizing CPU and memory per task definition." },
+      { id: "B", text: "Run the service on ECS with the EC2 launch type, backed by an Auto Scaling group using a cluster capacity provider." },
+      { id: "C", text: "Run the service on Amazon EKS with self-managed node groups and the Kubernetes Cluster Autoscaler." },
+      { id: "D", text: "Run the service on EC2 instances with Docker installed and an Application Load Balancer distributing across them." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Fargate removes the instance layer entirely: AWS provisions the compute for each task, billing is per vCPU and gigabyte-second for the task's lifetime, and there is no host to patch or scale. The workload has none of the characteristics that would force EC2.",
+    whyWrong: {
+      B: "Capacity providers automate scaling but the EC2 instances remain the team's to patch, right-size and secure.",
+      C: "EKS with self-managed nodes adds both the Kubernetes control plane concepts and node maintenance, which is more overhead rather than less.",
+      D: "Running Docker on plain EC2 gives no orchestration, so placement, health and scaling all become the team's responsibility."
+    }
+  },
+
+  {
+    id: "perf-056",
+    domain: "Design High-Performing Architectures",
+    topic: "Placement groups and HPC networking",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A research group runs a tightly coupled computational fluid dynamics simulation across 40 EC2 instances. The processes exchange messages continuously using MPI, and profiling shows that internode latency dominates the run time. The team can tolerate the loss of the whole job if a rack fails, because a failed run is simply restarted. Which configuration gives the best network performance?",
+    options: [
+      { id: "A", text: "Launch the instances into a cluster placement group with an Elastic Fabric Adapter attached." },
+      { id: "B", text: "Launch the instances into a spread placement group so that each runs on distinct underlying hardware." },
+      { id: "C", text: "Launch the instances into a partition placement group with one partition per rack of the simulation." },
+      { id: "D", text: "Launch the instances across three Availability Zones and enable enhanced networking with an Elastic Network Adapter." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A cluster placement group packs instances into a single Availability Zone on hardware chosen for low-latency, high-bandwidth interconnect. Elastic Fabric Adapter adds OS-bypass for MPI traffic, which is the specific accelerator for tightly coupled HPC.",
+    whyWrong: {
+      B: "Spread placement deliberately separates instances to reduce correlated failure, which increases the latency this workload is bound by.",
+      C: "Partition placement isolates groups from each other for large distributed data stores; it does not minimise latency between all nodes.",
+      D: "Spreading across Availability Zones adds inter-AZ latency, and ENA alone lacks the OS-bypass path that EFA provides."
+    }
+  },
+
+  {
+    id: "perf-057",
+    domain: "Design High-Performing Architectures",
+    topic: "Global Accelerator vs CloudFront",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A voice-over-IP provider runs media servers behind Network Load Balancers in three Regions. Traffic is UDP, entirely dynamic and not cacheable, and customers report variable quality attributed to internet routing. The provider wants clients to enter the AWS network as close to themselves as possible and needs two fixed anycast IP addresses to publish to enterprise customers for firewall allow-listing. Which service is MOST appropriate?",
+    options: [
+      { id: "A", text: "AWS Global Accelerator with an endpoint group per Region, providing two static anycast addresses." },
+      { id: "B", text: "Amazon CloudFront with the Network Load Balancers as origins and caching disabled, using its global edge network for entry." },
+      { id: "C", text: "Amazon Route 53 latency-based routing across the three Network Load Balancers, with health checks on each Region." },
+      { id: "D", text: "AWS Direct Connect from each enterprise customer's premises into the nearest Region hosting a media server." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Global Accelerator is the right tool for non-HTTP, non-cacheable traffic: it supports TCP and UDP, provides two static anycast IPs suited to firewall allow-listing, and routes from the nearest edge over the AWS backbone with fast failover between Regional endpoint groups.",
+    whyWrong: {
+      B: "CloudFront handles HTTP and HTTPS only, so it cannot carry UDP media traffic regardless of caching settings.",
+      C: "Latency routing picks a Region at DNS resolution time but leaves the packets on the public internet and provides no static addresses.",
+      D: "Direct Connect is a private circuit per customer site; it does not help consumer clients and would be disproportionate for allow-listing."
+    }
+  },
+
+  {
+    id: "perf-058",
+    domain: "Design High-Performing Architectures",
+    topic: "Auto Scaling policies and warm pools",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A media company's Auto Scaling group runs an application whose instances take about eight minutes to become useful because they download a large model file and warm a local cache at boot. Traffic rises sharply and predictably each weekday at 19:00, and the current target tracking policy reacts too slowly, leaving requests queued for several minutes. The company wants the delay removed without paying for full capacity all day. Which change should the architect make?",
+    options: [
+      { id: "A", text: "Add a warm pool of pre-initialised instances held in a stopped state for scale-out to draw from." },
+      { id: "B", text: "Replace target tracking with a simple scaling policy that adds a larger fixed number of instances on each CloudWatch alarm breach." },
+      { id: "C", text: "Increase the group's desired capacity permanently to the evening peak so that instances are always ready when the traffic arrives." },
+      { id: "D", text: "Shorten the group's default cooldown period so successive scaling activities can launch instances more frequently." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A warm pool keeps instances that have finished the expensive initialisation in a stopped state, where only storage is billed. On scale-out they are started rather than launched from scratch, which removes most of the eight-minute delay without running full capacity continuously.",
+    whyWrong: {
+      B: "Adding more instances per step does not shorten how long each one takes to become useful, so the queue still forms.",
+      C: "Permanently sizing for peak solves the latency but is exactly the all-day cost the company wants to avoid.",
+      D: "Cooldown governs the gap between scaling activities, not instance start-up time; shortening it can cause over-scaling instead."
+    }
+  },
+
+  {
+    id: "cost-045",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Cost allocation tags and budgets",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A finance team must produce a monthly chargeback report that breaks spend down to individual resource level across 30 accounts in an organization, joins it against internal project codes held in a separate system, and retains three years of history for auditors. Cost Explorer's granularity has proved insufficient. Which approach should the architect recommend?",
+    options: [
+      { id: "A", text: "Deliver the AWS Cost and Usage Report to Amazon S3 in Parquet and query it with Amazon Athena." },
+      { id: "B", text: "Schedule monthly exports of Cost Explorer reports to CSV from each of the 30 accounts and combine them in a spreadsheet with the project codes." },
+      { id: "C", text: "Create an AWS Budget per project with cost filters on the relevant tags, and use the budget reports as the chargeback record." },
+      { id: "D", text: "Query the AWS Price List API for each resource type in use and multiply by resource counts collected from AWS Config."
+      }
+    ],
+    correct: ["A"],
+    explanation:
+      "The Cost and Usage Report is the most granular billing data AWS publishes, down to the hour and the individual resource, covering every account in the organization. Delivered to S3 it can be queried with Athena and joined to any other dataset, and S3 handles the three-year retention cheaply.",
+    whyWrong: {
+      B: "Cost Explorer exports are aggregated, and repeating a manual process across 30 accounts every month is both error-prone and slow.",
+      C: "Budgets are a forecasting and alerting tool. They do not produce a resource-level record suitable for chargeback or audit.",
+      D: "Price List data gives list prices, ignoring discounts, Savings Plans and actual usage, so the result would not reconcile to the bill."
+    }
+  },
+
+  {
+    id: "cost-046",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "S3 storage class selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A company stores 90 TB of customer documents in Amazon S3. Some documents are opened many times a week for years, while others are never opened again after the first fortnight, and the pattern for any given document cannot be predicted in advance. Every document must remain retrievable in milliseconds, and the team does not want to build or maintain analysis of access patterns. Which storage approach is MOST cost-effective?",
+    options: [
+      { id: "A", text: "Store all documents in S3 Intelligent-Tiering and let it move each object between frequent and infrequent access tiers automatically." },
+      { id: "B", text: "Store documents in S3 Standard and add a lifecycle rule transitioning them to S3 Standard-IA after 30 days." },
+      { id: "C", text: "Store documents in S3 Standard-IA from the outset, accepting the retrieval charge on the frequently opened documents." },
+      { id: "D", text: "Store documents in S3 Standard and run a monthly job that inspects S3 access logs and copies cold objects to S3 Glacier Instant Retrieval." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Intelligent-Tiering exists precisely for unpredictable access. It monitors each object and moves it between access tiers for a small per-object monitoring fee, with no retrieval charges and millisecond access in both frequent and infrequent tiers.",
+    whyWrong: {
+      B: "A fixed 30-day rule penalises the documents that stay hot, since reading from Standard-IA incurs a per-gigabyte retrieval charge.",
+      C: "Putting everything in Standard-IA immediately means paying retrieval charges on the busiest documents and a minimum 30-day storage duration.",
+      D: "This rebuilds what Intelligent-Tiering already does, adds a job to maintain, and copying objects changes their keys and modification times."
+    }
+  },
+
+  {
+    id: "cost-047",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Serverless vs container cost",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A studio renders video thumbnails in batches that arrive unpredictably. Each batch is a set of independent ECS tasks that take about fifteen minutes, and the studio is content for a task to be stopped and retried later, because the batch has no completion deadline beyond the end of the day. The studio wants the lowest possible compute cost and does not want to manage EC2 capacity. Which option should the architect choose?",
+    options: [
+      { id: "A", text: "Run the tasks on ECS using a Fargate Spot capacity provider, with a Fargate capacity provider as fallback for any interrupted task." },
+      { id: "B", text: "Run the tasks on ECS with the standard Fargate capacity provider and purchase a Compute Savings Plan sized to the average batch." },
+      { id: "C", text: "Run the tasks on ECS with the EC2 launch type on an Auto Scaling group of Spot Instances managed by the team." },
+      { id: "D", text: "Run each thumbnail conversion as an AWS Lambda function invoked in parallel for every item in the batch." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Fargate Spot offers a steep discount on spare capacity and suits interruptible, deadline-free work. Tasks may be reclaimed with a two-minute warning, which this workload tolerates, and no EC2 capacity has to be managed.",
+    whyWrong: {
+      B: "A Savings Plan discounts a committed baseline, but unpredictable batch arrivals make a commitment risky and it will not beat Spot pricing for interruptible work.",
+      C: "EC2 Spot can be cheaper still but reintroduces the instance fleet the studio said it does not want to manage.",
+      D: "Lambda is billed per millisecond at a higher unit rate for sustained compute, and a fifteen-minute task sits at the very edge of its timeout."
+    }
+  },
+
+  {
+    id: "cost-048",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "EBS snapshot and volume cost",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A cost review of a production fleet finds several hundred gp2 volumes, most sized well above the capacity actually used because the team had provisioned extra gigabytes purely to obtain the IOPS the applications needed. The team wants to lower storage spend while keeping at least the current performance, and cannot take the applications offline. Which TWO actions achieve this? (Select TWO.)",
+    options: [
+      { id: "A", text: "Modify the volumes to gp3, which decouples IOPS and throughput from provisioned capacity." },
+      { id: "B", text: "Once on gp3, reduce provisioned IOPS and throughput to the levels the applications actually use, measured from CloudWatch." },
+      { id: "C", text: "Modify the volumes to io2 Block Express and provision the measured IOPS against a smaller capacity for each volume." },
+      { id: "D", text: "Take snapshots of each volume, delete the originals, and restore smaller volumes from the snapshots during a maintenance window." },
+      { id: "E", text: "Enable EBS fast snapshot restore on the volumes so that read performance no longer depends on provisioned capacity." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "gp3 provides a 3,000 IOPS and 125 MB/s baseline independent of size and is cheaper per gigabyte than gp2, so oversized volumes exist only to buy performance that gp3 supplies directly. Modification is online, and trimming provisioned performance to measured need removes the remaining premium.",
+    whyWrong: {
+      C: "io2 Block Express is a high-durability, high-IOPS class priced well above gp3; moving general-purpose volumes to it would raise cost.",
+      D: "Volume size cannot be reduced by restoring a snapshot into a smaller volume, and the approach requires the downtime the team ruled out.",
+      E: "Fast snapshot restore speeds up volumes created from snapshots and has its own hourly charge; it does not change a volume's performance model."
+    }
   }
 
 ];
