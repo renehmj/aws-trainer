@@ -5117,6 +5117,487 @@ window.BANKS["SAA-C03"] = [
       D: "Volume size cannot be reduced by restoring a snapshot into a smaller volume, and the approach requires the downtime the team ruled out.",
       E: "Fast snapshot restore speeds up volumes created from snapshots and has its own hourly charge; it does not change a volume's performance model."
     }
+  },
+
+  {
+    id: "cost-049",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Compute pricing models",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A company has run the same 40 m5.xlarge instances in eu-west-1 continuously for two years and expects no change for at least another year. Finance wants the largest available discount and is willing to pay the full amount at the start of the term. The platform team confirms the instance family and Region are fixed by a vendor support agreement. Which purchase gives the deepest discount?",
+    options: [
+      { id: "A", text: "A one-year all-upfront EC2 Instance Savings Plan committed to the m5 family in eu-west-1." },
+      { id: "B", text: "A one-year all-upfront Compute Savings Plan sized to the same hourly spend, which also covers Fargate and Lambda usage elsewhere in the account." },
+      { id: "C", text: "One-year all-upfront Convertible Reserved Instances, which allow the family to be exchanged later if the vendor agreement changes." },
+      { id: "D", text: "On-Demand Capacity Reservations for the 40 instances, combined with a Compute Savings Plan covering the reserved capacity." }
+    ],
+    correct: ["A"],
+    explanation:
+      "EC2 Instance Savings Plans and Standard RIs offer the deepest discounts because the commitment is narrowest — a specific family in a specific Region. Since the family and Region are contractually fixed, there is no value in paying for flexibility, and all-upfront maximises the discount.",
+    whyWrong: {
+      B: "Compute Savings Plans trade discount for flexibility across families, Regions and compute services, so the rate is lower than an Instance plan for the same commitment.",
+      C: "Convertible RIs discount less than Standard RIs or Instance Savings Plans precisely because they can be exchanged, and that flexibility is not needed here.",
+      D: "Capacity Reservations guarantee capacity but carry no discount of their own; they bill at On-Demand rates unless a separate commitment applies."
+    }
+  },
+
+  {
+    id: "cost-050",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Data transfer and NAT cost",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A three-tier application runs across three Availability Zones. The web tier calls the application tier through an internal Application Load Balancer, and monitoring shows a large and growing inter-Availability Zone data transfer charge. Availability requirements mean the application must keep running instances in all three zones. Which change reduces the charge while preserving that availability?",
+    options: [
+      { id: "A", text: "Disable cross-zone load balancing on the internal load balancer so that requests stay within the caller's Availability Zone." },
+      { id: "B", text: "Consolidate the application tier into a single Availability Zone and rely on rapid replacement if that zone becomes unavailable." },
+      { id: "C", text: "Replace the internal Application Load Balancer with a Network Load Balancer, which does not charge for data it processes." },
+      { id: "D", text: "Route the internal traffic through a NAT gateway in each Availability Zone so that flows stay zonal." }
+    ],
+    correct: ["A"],
+    explanation:
+      "With cross-zone load balancing off, an internal ALB node sends requests only to targets in its own Availability Zone, so traffic no longer crosses zone boundaries and the inter-AZ charge falls. Instances remain in all three zones, so availability is unchanged.",
+    whyWrong: {
+      B: "Collapsing the tier into one zone removes the inter-AZ charge but abandons the multi-zone availability requirement the question fixes.",
+      C: "NLB still bills for processed capacity, and switching type does not stop traffic crossing Availability Zones.",
+      D: "NAT gateways handle outbound internet traffic from private subnets and add cost; they play no part in internal load-balanced calls."
+    }
+  },
+
+  {
+    id: "cost-051",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Database cost optimization",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A software vendor runs 60 small Amazon Aurora PostgreSQL clusters, one per customer. Most see traffic only during their own business hours and sit idle overnight and at weekends, but a handful spike unpredictably. The vendor currently provisions every cluster for its peak and wants to stop paying for idle capacity without rewriting the application or managing capacity by hand. What should the architect recommend?",
+    options: [
+      { id: "A", text: "Migrate the clusters to Aurora Serverless v2 with a wide capacity unit range." },
+      { id: "B", text: "Purchase Reserved Instances for all 60 clusters based on the average capacity each one uses across the month." },
+      { id: "C", text: "Consolidate the 60 clusters onto a small number of larger provisioned clusters, separating customers by schema." },
+      { id: "D", text: "Schedule a Lambda function to stop each cluster outside its customer's business hours and start it again each morning." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Aurora Serverless v2 scales capacity in fine-grained increments in response to load and bills per ACU-second, so idle clusters cost little and spiky ones absorb bursts without pre-provisioning. The endpoint and SQL interface are unchanged, so the application is untouched.",
+    whyWrong: {
+      B: "Reserved capacity commits to a fixed size, which still pays for the idle overnight hours and cannot absorb the unpredictable spikes.",
+      C: "Consolidation introduces noisy-neighbour risk between customers and is a substantial migration with tenancy implications.",
+      D: "Stopping an Aurora cluster still bills storage, the cluster restarts automatically after seven days, and this does nothing for the unpredictable spikes."
+    }
+  },
+
+  {
+    id: "cost-052",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Serverless vs container cost",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "An API currently runs as an AWS Lambda function behind Amazon API Gateway. Traffic has grown to a steady 400 requests per second around the clock, each invocation runs for roughly 700 milliseconds at 1 GB of memory, and the monthly bill has climbed sharply. The team is happy to containerise the handler if it lowers cost, and the workload is stateless. What should the architect evaluate first?",
+    options: [
+      { id: "A", text: "Moving the handler to ECS on Fargate with a Compute Savings Plan on the baseline." },
+      { id: "B", text: "Increasing the Lambda memory allocation so each invocation completes faster and the total billed duration falls." },
+      { id: "C", text: "Adding an API Gateway cache so that repeated requests are served without invoking the function." },
+      { id: "D", text: "Switching the function to an ARM-based Graviton2 architecture and enabling Lambda SnapStart." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Lambda's per-millisecond pricing is excellent for spiky or low-volume work but loses to container compute once load is high and continuous. At a sustained 400 requests per second the duty cycle is effectively constant, so long-running Fargate tasks with a Savings Plan on the baseline are the obvious comparison.",
+    whyWrong: {
+      B: "More memory can reduce duration but raises the per-millisecond rate proportionally, so it rarely produces a large saving for a CPU-bound handler.",
+      C: "Caching helps only if requests repeat; nothing in the scenario suggests the responses are cacheable.",
+      D: "Graviton2 and SnapStart trim perhaps twenty per cent and cold starts respectively, which does not address the structural cost of constant load."
+    }
+  },
+
+  {
+    id: "cost-053",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Lifecycle policies and archival",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A bank keeps trade confirmations in Amazon S3. Regulation requires them to be retained for seven years. In practice they are read constantly for the first 90 days, occasionally in the following nine months, and after that only if a regulator asks, in which case they may be produced within 12 hours. The bank wants the lowest storage cost consistent with those access patterns. Which lifecycle configuration should be used?",
+    options: [
+      { id: "A", text: "Standard for 90 days, then Standard-IA, then Glacier Flexible Retrieval at one year, expiring at seven years." },
+      { id: "B", text: "Standard for 90 days, then Standard-IA, then Glacier Deep Archive at one year, expiring at seven years." },
+      { id: "C", text: "Standard for 90 days, then One Zone-IA, then Glacier Instant Retrieval at one year, expiring at seven years." },
+      { id: "D", text: "Intelligent-Tiering from upload with the Deep Archive access tier enabled, expiring the objects at seven years." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Glacier Flexible Retrieval offers standard retrievals in three to five hours and bulk in five to twelve, both inside the 12-hour window, at a lower storage rate than Instant Retrieval. Standard then Standard-IA matches the first year's access profile.",
+    whyWrong: {
+      B: "Deep Archive is cheaper to store but standard retrieval takes up to 12 hours and bulk up to 48, which risks breaching the deadline.",
+      C: "One Zone-IA keeps a single Availability Zone copy, which is inappropriate for regulated records, and Instant Retrieval costs more to store than the access pattern justifies.",
+      D: "Intelligent-Tiering charges a monitoring fee per object and its archive tiers must be restored anyway, so it adds cost without benefit for a known pattern."
+    }
+  },
+
+  {
+    id: "cost-054",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Environment scheduling and idle resources",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A cost review of a development account finds resources left running after project work finished. The team wants to identify and stop paying for anything genuinely unused, and wants recommendations rather than raw metrics. Which TWO AWS capabilities directly surface idle or unused resources for this purpose? (Select TWO.)",
+    options: [
+      { id: "A", text: "AWS Trusted Advisor cost optimization checks, which flag idle load balancers, unassociated Elastic IPs and low-utilisation instances." },
+      { id: "B", text: "AWS Compute Optimizer, which classifies EC2 instances, EBS volumes and Lambda functions as over-provisioned or idle with a recommended change." },
+      { id: "C", text: "AWS Budgets with a monthly cost budget and an alert threshold at 80 per cent of forecast spend for the account." },
+      { id: "D", text: "AWS CloudTrail data events recording every API call made against resources in the account." },
+      { id: "E", text: "Amazon CloudWatch dashboards showing CPU utilisation graphs for each running instance in the account." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Trusted Advisor and Compute Optimizer both produce explicit recommendations. Trusted Advisor's cost checks name idle load balancers, unattached addresses and under-used instances, while Compute Optimizer analyses utilisation and returns a recommended resource change with projected savings.",
+    whyWrong: {
+      C: "Budgets alerts on total spend against a threshold and never identifies which particular resource is idle.",
+      D: "CloudTrail records control-plane and data-plane calls for audit; deriving idleness from it would be a substantial analysis project.",
+      E: "Dashboards display raw metrics, leaving a human to decide what counts as idle, which is the manual work the team wants to avoid."
+    }
+  },
+
+  {
+    id: "cost-055",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Right-sizing and cost visibility",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A company stores 3 PB across several hundred S3 buckets in 12 accounts. The storage team must find which prefixes hold objects that have not been read for over a year, compare storage class distribution across every bucket in the organization, and track those figures month on month. They want this without writing an inventory pipeline. Which service should they use?",
+    options: [
+      { id: "A", text: "Amazon S3 Storage Lens with advanced metrics enabled and the organization-level dashboard turned on." },
+      { id: "B", text: "Amazon S3 Inventory reports delivered daily to a central bucket and queried with Amazon Athena." },
+      { id: "C", text: "AWS Cost Explorer filtered by the S3 service with the usage type dimension broken out per account." },
+      { id: "D", text: "Amazon CloudWatch storage metrics for each bucket, aggregated into a cross-account dashboard." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Storage Lens is built for exactly this: an organization-wide view of usage and activity, with advanced metrics adding prefix-level detail, activity such as retrieval patterns, and month-on-month trending, all without building a pipeline.",
+    whyWrong: {
+      B: "S3 Inventory does list objects and their storage classes, but assembling trend analysis across 12 accounts from it is the pipeline the team wants to avoid.",
+      C: "Cost Explorer reports spend by usage type, not which prefixes are cold or how storage classes are distributed per bucket.",
+      D: "CloudWatch daily storage metrics give bucket size and object count only, with no prefix or activity detail."
+    }
+  },
+
+  {
+    id: "cost-056",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Compute pricing models",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A genomics team runs nightly analysis jobs on Amazon EMR. Each job takes between two and six hours, checkpoints its progress every ten minutes, and can restart from the last checkpoint if a node disappears. The team wants the lowest compute cost and accepts that a run may occasionally take longer. How should the cluster be configured?",
+    options: [
+      { id: "A", text: "Run the core and task nodes on a diversified Spot fleet, keeping the primary On-Demand." },
+      { id: "B", text: "Run the entire cluster, including the primary node, on Spot Instances using a capacity-optimized allocation strategy." },
+      { id: "C", text: "Run the entire cluster On-Demand and purchase an EC2 Instance Savings Plan covering the nightly window." },
+      { id: "D", text: "Run the cluster on Reserved Instances sized to the largest nightly job so capacity is always guaranteed." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Task and core nodes are the bulk of an EMR cluster and suit Spot when work is checkpointed and restartable. Keeping the primary node On-Demand protects the cluster from being terminated outright, and a diversified instance fleet reduces the chance of simultaneous reclamation.",
+    whyWrong: {
+      B: "Losing the primary node to reclamation terminates the whole cluster and the job with it, which no amount of checkpointing recovers cheaply.",
+      C: "Savings Plans discount a committed hourly spend but cannot approach Spot pricing for interruption-tolerant batch work.",
+      D: "Reserved Instances bill continuously, so a cluster running a few hours a night would pay for the twenty idle hours as well."
+    }
+  },
+
+  {
+    id: "res-062",
+    domain: "Design Resilient Architectures",
+    topic: "RDS Multi-AZ vs read replicas",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A reporting workload issues heavy read-only queries against an Amazon RDS for MySQL instance that also serves a transactional application. The queries slow down order processing during business hours. The company additionally requires that the database survive the loss of an Availability Zone with automatic failover and no data loss. Which combination meets both requirements?",
+    options: [
+      { id: "A", text: "Enable Multi-AZ and add a read replica, pointing reporting at the replica endpoint." },
+      { id: "B", text: "Add two read replicas in different Availability Zones and promote one automatically if the primary instance fails." },
+      { id: "C", text: "Enable Multi-AZ and direct the reporting queries at the standby instance in the second Availability Zone." },
+      { id: "D", text: "Increase the instance class and enable Performance Insights to identify and tune the slow reporting queries." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Multi-AZ maintains a synchronous standby and fails over automatically, giving zero data loss for zone failure. A read replica is asynchronous and separately addressable, so reporting can be pointed at it and stops competing with transactions.",
+    whyWrong: {
+      B: "Read replicas replicate asynchronously, so promoting one can lose recent transactions, and promotion is not automatic.",
+      C: "The Multi-AZ standby is not readable in RDS for MySQL; it exists purely for failover.",
+      D: "A larger instance may mask the contention for a while but adds no availability, and the requirement for automatic failover is unmet."
+    }
+  },
+
+  {
+    id: "res-063",
+    domain: "Design Resilient Architectures",
+    topic: "Disaster recovery strategies",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "An insurer must be able to recover its core platform in a second Region within 15 minutes of a Regional failure, losing no more than one minute of data. The platform is a stateless web tier on EC2 plus an Amazon Aurora MySQL cluster. Finance will fund a scaled-down permanent footprint in the second Region but not a full duplicate. Which strategy fits?",
+    options: [
+      { id: "A", text: "Warm standby: an Aurora global database with a secondary cluster, plus a reduced always-on web tier scaled up at failover." },
+      { id: "B", text: "Pilot light: an Aurora global database secondary with the web tier defined in CloudFormation and launched only when failover is declared." },
+      { id: "C", text: "Backup and restore: automated Aurora snapshots copied to the second Region and infrastructure rebuilt from templates on declaration." },
+      { id: "D", text: "Multi-site active-active: full production capacity running in both Regions with traffic split between them at all times." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Aurora global database replicates with typical lag under a second, satisfying the one-minute RPO. A warm standby keeps a reduced web tier already running, so recovery is a scale-out and a DNS change rather than a cold build, which fits inside 15 minutes at partial cost.",
+    whyWrong: {
+      B: "Pilot light keeps the data layer warm but launches compute from nothing, and provisioning plus application start-up typically overruns a 15-minute RTO.",
+      C: "Snapshot restore of an Aurora cluster takes far longer than 15 minutes and the snapshot interval breaches the one-minute RPO.",
+      D: "Active-active would meet the objectives comfortably but is the full duplicate cost that finance declined."
+    }
+  },
+
+  {
+    id: "res-064",
+    domain: "Design Resilient Architectures",
+    topic: "S3 durability and replication",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A media company must keep a copy of every object uploaded to a bucket in eu-west-1 in a second Region for disaster recovery, and compliance requires that 99.99 per cent of new objects replicate within 15 minutes with a report proving it. Existing objects uploaded before the requirement must also be copied. What should the architect configure?",
+    options: [
+      { id: "A", text: "Cross-Region Replication with S3 Replication Time Control enabled, plus a one-off S3 Batch Replication job for the existing objects." },
+      { id: "B", text: "Cross-Region Replication with default settings, relying on replication metrics in Amazon CloudWatch to evidence the timings." },
+      { id: "C", text: "A scheduled AWS DataSync task that copies the bucket to the destination Region every 15 minutes and reports on transferred files." },
+      { id: "D", text: "S3 Same-Region Replication to a second bucket, then a lifecycle rule transitioning those objects to the second Region." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Replication Time Control carries an SLA to replicate 99.99 per cent of objects within 15 minutes and publishes the metrics and events that evidence it. Replication applies only to objects written after it is enabled, so Batch Replication handles the existing ones.",
+    whyWrong: {
+      B: "Default replication is best-effort with no time commitment, so it cannot satisfy a contractual 15-minute requirement.",
+      C: "A 15-minute batch cycle means an object uploaded just after a run waits almost a full cycle, and DataSync provides no such SLA.",
+      D: "Same-Region Replication copies within one Region, and lifecycle rules change storage class rather than move objects between Regions."
+    }
+  },
+
+  {
+    id: "res-065",
+    domain: "Design Resilient Architectures",
+    topic: "Stateless application design",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A web application stores session state in memory on each EC2 instance behind an Application Load Balancer, which forces sticky sessions. When the Auto Scaling group removes an instance during scale-in, users on that instance are logged out and lose their shopping baskets. The team wants scale-in to be transparent to users and sub-millisecond session lookups. What should they do?",
+    options: [
+      { id: "A", text: "Move session state to an Amazon ElastiCache for Redis cluster shared by all instances and disable sticky sessions." },
+      { id: "B", text: "Enable connection draining on the target group so in-flight sessions complete before an instance is removed." },
+      { id: "C", text: "Store session state in an Amazon RDS table read by every instance, keeping sticky sessions as a fallback." },
+      { id: "D", text: "Enable scale-in protection on all instances so the Auto Scaling group never terminates one carrying sessions." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Externalising session state makes the instances genuinely stateless, so any instance can serve any request and termination is invisible to users. ElastiCache for Redis provides the sub-millisecond lookups a per-request session read demands.",
+    whyWrong: {
+      B: "Draining lets existing connections finish but the session still disappears with the instance, so the user is logged out on their next request.",
+      C: "A relational database can hold sessions but adds milliseconds per request and puts transactional load on a database sized for business data.",
+      D: "Blocking scale-in defeats Auto Scaling and simply defers the problem to the next instance replacement or failure."
+    }
+  },
+
+  {
+    id: "res-066",
+    domain: "Design Resilient Architectures",
+    topic: "Monitoring and alarms with CloudWatch",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An operations team is paged whenever a single CloudWatch alarm on request latency breaches, but most pages are transient spikes that resolve unaided. They want to be paged only when raised latency coincides with a genuine rise in application errors, and they do not want to build an alerting service of their own. What should the architect configure?",
+    options: [
+      { id: "A", text: "A CloudWatch composite alarm whose rule requires both the latency alarm and the error-rate alarm to be in ALARM before notifying." },
+      { id: "B", text: "A metric math expression dividing errors by requests, with a single alarm on the resulting ratio and a longer evaluation period." },
+      { id: "C", text: "An EventBridge rule matching alarm state-change events, with a Lambda function that correlates the two alarms before paging." },
+      { id: "D", text: "An increased datapoints-to-alarm setting on the latency alarm so that brief spikes no longer trigger a notification." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Composite alarms exist for this: a rule combines child alarm states with AND, OR and NOT, and only the composite sends the notification. Nothing has to be built or maintained, and the child alarms remain individually visible.",
+    whyWrong: {
+      B: "An error-ratio alarm ignores latency entirely, so it does not express the coincidence the team described.",
+      C: "This works but means writing and operating correlation code, which is exactly the custom alerting service they wanted to avoid.",
+      D: "Requiring more datapoints suppresses short spikes but still pages for sustained latency with no errors."
+    }
+  },
+
+  {
+    id: "res-067",
+    domain: "Design Resilient Architectures",
+    topic: "Aurora high availability",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An Aurora MySQL cluster serves a payments service from a writer and two readers spread across three Availability Zones. During a recent failover the application continued sending writes to the old writer's instance endpoint and failed for several minutes until it was restarted. The team wants failover to be handled without application restarts or code that tracks which instance is writer. What should they change?",
+    options: [
+      { id: "A", text: "Point the application at the cluster endpoint, which always resolves to the current writer after a failover." },
+      { id: "B", text: "Point the application at the reader endpoint, which load-balances across the available instances in the cluster." },
+      { id: "C", text: "Reduce the DNS time-to-live on the instance endpoint so clients pick up the new writer address sooner." },
+      { id: "D", text: "Add a third reader instance so that Aurora has more candidates available when it selects a new writer." }
+    ],
+    correct: ["A"],
+    explanation:
+      "The cluster endpoint is the writer endpoint: Aurora repoints it at whichever instance holds the writer role, so an application using it follows a failover automatically. Instance endpoints address one specific instance and never move.",
+    whyWrong: {
+      B: "The reader endpoint distributes read-only connections and rejects writes, so a payments service could not use it for transactions.",
+      C: "Lowering TTL on an instance endpoint does not help, because that endpoint continues to point at the same instance regardless of role.",
+      D: "More readers shorten nothing about how the application discovers the writer; the endpoint choice is the problem."
+    }
+  },
+
+  {
+    id: "perf-059",
+    domain: "Design High-Performing Architectures",
+    topic: "EBS volume type selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A transactional database on EC2 needs sustained 40,000 IOPS at under one millisecond latency on a 2 TB volume, and the business requires the storage itself to offer higher durability than a standard volume because a rebuild would take days. Cost matters but is secondary to meeting these figures. Which EBS volume type should the architect choose?",
+    options: [
+      { id: "A", text: "io2 Block Express, provisioned at 40,000 IOPS." },
+      { id: "B", text: "gp3 with the maximum provisioned IOPS and throughput settings applied to the volume." },
+      { id: "C", text: "Two gp3 volumes of 1 TB each, striped with RAID 0 to combine their IOPS." },
+      { id: "D", text: "st1 throughput-optimized HDD, sized so that the volume's baseline throughput covers the workload." }
+    ],
+    correct: ["A"],
+    explanation:
+      "io2 Block Express supports up to 256,000 IOPS per volume with sub-millisecond latency and is rated at 99.999 per cent durability, an order of magnitude above other EBS types. It is the only option meeting the latency, IOPS and durability requirements together.",
+    whyWrong: {
+      B: "gp3 tops out at 16,000 IOPS per volume, well short of the requirement, and carries standard EBS durability.",
+      C: "Striping two gp3 volumes reaches 32,000 IOPS at best, still short, and RAID 0 lowers effective durability rather than raising it.",
+      D: "st1 is a magnetic type optimised for large sequential throughput and is entirely unsuited to low-latency transactional IOPS."
+    }
+  },
+
+  {
+    id: "perf-060",
+    domain: "Design High-Performing Architectures",
+    topic: "Shared file storage selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A machine learning team trains models on a 20 TB dataset held in Amazon S3. Training runs across a fleet of GPU instances that must read the data as a POSIX file system at hundreds of gigabytes per second, and the cluster is created for each run and destroyed afterwards. The team wants the file system to present the S3 data without a manual copy step. Which storage should the architect select?",
+    options: [
+      { id: "A", text: "Amazon FSx for Lustre with a data repository association linked to the S3 bucket." },
+      { id: "B", text: "Amazon Elastic File System in General Purpose mode with Elastic Throughput enabled for the training fleet." },
+      { id: "C", text: "Amazon FSx for OpenZFS provisioned with high throughput and populated from S3 at the start of each run." },
+      { id: "D", text: "Amazon EBS io2 volumes attached to each GPU instance and hydrated from the bucket before training begins." }
+    ],
+    correct: ["A"],
+    explanation:
+      "FSx for Lustre is the high-performance parallel file system for HPC and ML, reaching hundreds of gigabytes per second. Linking it to an S3 bucket presents the objects as files and loads them lazily on access, so no separate copy step is needed.",
+    whyWrong: {
+      B: "EFS is a general-purpose NFS file system whose throughput ceiling is far below what a GPU training fleet demands.",
+      C: "FSx for OpenZFS has no native S3 integration, so each run would begin with the manual load the team wants to avoid.",
+      D: "EBS volumes attach to a single instance, so a shared dataset would have to be duplicated per instance and hydrated every run."
+    }
+  },
+
+  {
+    id: "perf-061",
+    domain: "Design High-Performing Architectures",
+    topic: "Streaming ingestion with Kinesis",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A telemetry pipeline uses a Kinesis data stream with 20 shards. Five consumer applications each read the full stream, and operators report rising millisecond-level iterator age and occasional read throughput exceptions. Each shard's 2 MB per second read limit is being shared across all five consumers. The team wants each consumer to get full throughput without adding shards. What should they configure?",
+    options: [
+      { id: "A", text: "Register each consumer for enhanced fan-out." },
+      { id: "B", text: "Increase the stream's retention period so that consumers have longer to catch up on the backlog." },
+      { id: "C", text: "Switch the stream to on-demand capacity mode so that shard count is managed automatically." },
+      { id: "D", text: "Have the five consumers share a single application that fans records out through Amazon SNS." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Enhanced fan-out gives each registered consumer its own 2 MB per second per shard read throughput and pushes records over HTTP/2, which also cuts propagation delay. Five consumers therefore stop competing for the shared limit without changing shard count.",
+    whyWrong: {
+      B: "Retention controls how long records remain available, not how fast consumers may read them, so the contention is unchanged.",
+      C: "On-demand mode scales shards with write throughput; the constraint here is read contention among consumers.",
+      D: "Introducing an SNS fan-out layer adds a hop, cost and a second delivery model, when Kinesis provides the capability directly."
+    }
+  },
+
+  {
+    id: "perf-062",
+    domain: "Design High-Performing Architectures",
+    topic: "DynamoDB performance and caching",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A product catalogue in Amazon DynamoDB serves a read-heavy storefront. A small number of popular items are read thousands of times per second, producing throttling on a single partition while overall table capacity sits well below its provisioned level. The team wants microsecond reads for those hot items without changing the application's DynamoDB API calls. What should the architect add?",
+    options: [
+      { id: "A", text: "An Amazon DynamoDB Accelerator cluster in front of the table, with the application pointed at the DAX endpoint." },
+      { id: "B", text: "An Amazon ElastiCache for Redis cluster, with the application checking the cache before falling back to the table." },
+      { id: "C", text: "A global secondary index on the popular attribute so reads are distributed across additional partitions." },
+      { id: "D", text: "On-demand capacity mode on the table so that DynamoDB absorbs the spikes on the hot partition automatically." }
+    ],
+    correct: ["A"],
+    explanation:
+      "DAX is an in-memory cache that speaks the DynamoDB API, so the application changes only its endpoint. It serves cached reads in microseconds and absorbs the hot-key traffic before it reaches the table, removing the partition throttling.",
+    whyWrong: {
+      B: "ElastiCache would work but requires cache-aside logic in the application, which the requirement to leave API calls unchanged rules out.",
+      C: "A global secondary index creates another copy with its own partitions; the same hot key still concentrates on one of them.",
+      D: "On-demand adapts total table capacity but does not lift the per-partition throughput ceiling that a hot key runs into."
+    }
+  },
+
+  {
+    id: "sec-069",
+    domain: "Design Secure Architectures",
+    topic: "S3 access controls and Block Public Access",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An audit finds that a bucket holding customer exports was made publicly readable by a developer who added a bucket policy granting s3:GetObject to a wildcard principal. The security team must guarantee that no bucket in any account of the organization can be made public in future, whatever bucket policy or ACL is applied, while leaving normal authenticated access untouched. What should be configured?",
+    options: [
+      { id: "A", text: "Enable account-level S3 Block Public Access everywhere, with an SCP preventing it being disabled." },
+      { id: "B", text: "Attach a bucket policy to each bucket that explicitly denies s3:GetObject when the principal is a wildcard." },
+      { id: "C", text: "Enable S3 Block Public Access on each bucket individually and monitor the setting with an AWS Config rule." },
+      { id: "D", text: "Turn on Amazon Macie across the organization so that publicly accessible buckets are detected and reported." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Account-level Block Public Access overrides any bucket policy or ACL that would grant public access, in every existing and future bucket. Pairing it with an SCP that denies s3:PutAccountPublicAccessBlock stops anyone turning the guardrail off.",
+    whyWrong: {
+      B: "A per-bucket deny relies on someone remembering to apply it to every new bucket, and a future policy edit could remove it.",
+      C: "Bucket-level settings can be changed by anyone with the permission, and a Config rule reports the drift after the exposure exists.",
+      D: "Macie discovers and classifies sensitive data and reports risk; it does not prevent a bucket from being made public."
+    }
+  },
+
+  {
+    id: "sec-070",
+    domain: "Design Secure Architectures",
+    topic: "Threat detection with GuardDuty and Security Hub",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A security team of three covers 40 AWS accounts. They need continuous detection of compromised credentials, cryptocurrency mining and communication with known malicious addresses, aggregated into one place with findings from Amazon Inspector and AWS Config, scored against the AWS Foundational Security Best Practices standard. They do not want to deploy or manage agents. What should the architect implement?",
+    options: [
+      { id: "A", text: "Amazon GuardDuty enabled organization-wide, with AWS Security Hub as the delegated administrator aggregating findings and running the standard." },
+      { id: "B", text: "Amazon Inspector enabled organization-wide, with its findings forwarded to an Amazon EventBridge bus in the security account." },
+      { id: "C", text: "AWS CloudTrail Lake collecting management and data events from all accounts, queried on a schedule for suspicious patterns." },
+      { id: "D", text: "Amazon Detective enabled in every account, with the security team investigating anomalies from its behaviour graphs." }
+    ],
+    correct: ["A"],
+    explanation:
+      "GuardDuty analyses CloudTrail, VPC Flow Logs and DNS logs with no agents and detects exactly these threat classes. Security Hub aggregates GuardDuty, Inspector and Config findings across the organization and scores them against the Foundational Security Best Practices standard.",
+    whyWrong: {
+      B: "Inspector assesses software vulnerabilities and unintended network exposure; it does not detect credential compromise or malicious traffic.",
+      C: "CloudTrail Lake stores and queries activity but supplies no threat intelligence, so the team would be writing detections themselves.",
+      D: "Detective helps investigate a finding after one exists. It is a complement to GuardDuty rather than a replacement."
+    }
   }
 
 ];
