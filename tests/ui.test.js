@@ -79,10 +79,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
   });
   ok(problems.length === 0, 'all banks schema-valid against their own path' + (problems.length ? ' — ' + problems.join('; ') : ''));
-  ok((BANKS['SAA-C03']||[]).length === 177 && (BANKS['DVA-C02']||[]).length === 8 &&
-     (BANKS['SAP-C02']||[]).length === 16 && (BANKS['DOP-C02']||[]).length === 17,
-     `bank sizes SAA ${BANKS['SAA-C03'].length}, DVA ${BANKS['DVA-C02'].length}, ` +
-     `SAP ${BANKS['SAP-C02'].length}, DOP ${BANKS['DOP-C02'].length}`);
+  // Derived, not hard-coded — the bank grows every time questions are written.
+  const sizes = Object.fromEntries(CERTS.map(c => [c.id, (BANKS[c.id]||[]).length]));
+  ok(Object.values(sizes).every(n => n > 0),
+     `every path has a non-empty bank (${JSON.stringify(sizes)})`);
+  ok(sizes['SAA-C03'] === Math.max(...Object.values(sizes)),
+     'SAA-C03 is the most developed bank');
   ok(CERTS.every(c => (BANKS[c.id]||[]).length > 0), 'every path now has questions');
   // domain mix must track the real blueprint weights
   const mixOff = CERTS.filter(c => (BANKS[c.id]||[]).length >= 40).map(c => {
