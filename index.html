@@ -2025,9 +2025,9 @@ function refreshMeasure(){
   }
 
   /* ---- honest calibration note ----
-   * Targets are measured from 259 questions of commercial exam-style practice
-   * material, not estimated. Re-measure before changing them. */
-  const EXAM = {short:2, qual:37, multi:17, longest:25};
+   * Targets are measured from 479 questions across eight commercial exam-style
+   * practice sets, not estimated. Re-measure before changing them. */
+  const EXAM = {short:1, qual:38, multi:16, longest:25};
   const words = t => t.split(/\s+/).length;
   const shortN = BANK.filter(q => words(q.question) < 40).length;
   const qualN  = BANK.filter(q => /\bMOST\b|\bLEAST\b|\bBEST\b|most cost-effective|least operational|best fulfill/i.test(q.question)).length;
@@ -2047,9 +2047,9 @@ function refreshMeasure(){
     '%</td><td style="color:' + (bad ? "var(--crit)" : "var(--good)") + '">' +
     (bad ? "off" : "on target") + '</td></tr>';
   document.getElementById("calNote").innerHTML =
-    '<p class="small" style="margin:0 0 12px">Measured against 259 questions of commercial ' +
-    'exam-style practice material. Where this bank is off, a score here reads higher than ' +
-    'you would score on the day.</p>' +
+    '<p class="small" style="margin:0 0 12px">Measured against 479 questions across eight ' +
+    'commercial exam-style practice sets. Where this bank is off, a score here reads higher ' +
+    'than you would score on the day.</p>' +
     '<table class="tv"><thead><tr><th>Trait</th><th>This bank</th><th>Exam-style</th>' +
     '<th>Status</th></tr></thead><tbody>' +
     rowOf("Stems under 40 words", sh, EXAM.short, sh > 15) +
