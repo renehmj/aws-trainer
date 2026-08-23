@@ -33,6 +33,12 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html certs.js bank-*.js manifest.json icon-*.png _site/
+          # Pages caches HTML for 10 minutes; without this the browser can pair a
+          # fresh index.html with stale scripts. Stamping the commit onto each src
+          # makes every deploy fetch its own copies.
+          V=${GITHUB_SHA::7}
+          sed -i "s|src=\"\(certs\.js\|bank-[a-z0-9-]*\.js\)\"|src=\"\1?v=$V\"|g" _site/index.html
+          grep -o 'src="[^"]*"' _site/index.html
           cp README.md _site/ 2>/dev/null || true
           touch _site/.nojekyll
           ls -la _site
