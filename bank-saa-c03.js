@@ -4337,6 +4337,302 @@ window.BANKS["SAA-C03"] = [
       C: "Changing operating system is a large, risky change with no guarantee of faster start-up.",
       D: "The Instance Metadata Service is a network endpoint, not a boot-time task, so disabling it saves nothing."
     }
+  },
+
+/* ---- batch 1 to the measured exam spec ----
+ * Targets from 324 questions of exam-style material: stems ~70 words with
+ * competing constraints, distractors at comparable length to the answer,
+ * ~30% carrying a MOST/LEAST qualifier, ~17% multi-answer.
+ * Concepts chosen to close measured coverage gaps. */
+
+  {
+    id: "sec-059",
+    domain: "Design Secure Architectures",
+    topic: "Identity federation and IAM Identity Center",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A manufacturing company runs an on-premises Active Directory forest that its security team requires to remain the single authoritative source of user accounts. The company is deploying a fleet of Windows EC2 instances in a VPC connected to the corporate network by AWS Direct Connect, and employees must sign in to those instances with their existing corporate credentials. The security team will not permit directory objects to be replicated into AWS. Which solution meets these requirements with the LEAST operational overhead?",
+    options: [
+      { id: "A", text: "Deploy AWS Directory Service AD Connector in the VPC and seamlessly domain-join the Windows instances through it." },
+      { id: "B", text: "Deploy AWS Managed Microsoft AD in the VPC, establish a two-way forest trust with the on-premises Active Directory, and domain-join the Windows instances to the AWS-hosted directory so that corporate accounts stay usable if the Direct Connect link goes down." },
+      { id: "C", text: "Deploy Simple AD in the VPC, create matching user accounts for every employee who needs access, and domain-join the Windows instances to the Simple AD directory." },
+      { id: "D", text: "Configure IAM Identity Center with the on-premises Active Directory as an external identity provider and have employees authenticate to the Windows instances through the AWS access portal." }
+    ],
+    correct: ["A"],
+    explanation:
+      "AD Connector is a directory proxy. It forwards authentication and user-lookup requests to on-premises domain controllers over the existing connection and stores no directory objects in AWS, which satisfies the security team's constraint directly. It supports seamless domain join for Windows EC2 instances, so no per-instance configuration is required.",
+    whyWrong: {
+      B: "A managed directory in AWS holds its own directory objects and a forest trust keeps them synchronised, which is exactly what the security team prohibited, and it costs more to run than a proxy.",
+      C: "Simple AD is a standalone Samba-based directory that cannot trust or proxy to an existing forest, so accounts would have to be duplicated and maintained separately from the authoritative source.",
+      D: "IAM Identity Center federates access to AWS accounts and SAML applications. It does not provide the Windows domain authentication a server needs for interactive operating-system sign-in."
+    }
+  },
+
+  {
+    id: "sec-060",
+    domain: "Design Secure Architectures",
+    topic: "Identity federation and IAM Identity Center",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A healthcare provider is migrating a .NET application to EC2 instances running Windows Server. The application requires LDAP lookups and Group Policy objects to configure its hosts, and it stores data in an Amazon RDS for SQL Server database that must authenticate application users with Windows Authentication. The provider's on-premises Active Directory must remain authoritative for identities, and the operations team is small. Which solution meets these requirements?",
+    options: [
+      { id: "A", text: "Deploy AWS Managed Microsoft AD and configure a one-way forest trust so the AWS directory trusts the on-premises forest, then join the EC2 instances and the RDS for SQL Server instance to the AWS directory." },
+      { id: "B", text: "Deploy AWS Directory Service AD Connector so that authentication is proxied to the on-premises domain controllers, then join the EC2 instances and the RDS for SQL Server instance to the directory through the connector." },
+      { id: "C", text: "Deploy Simple AD sized for the user population, apply the required Group Policy objects to it, and enable Windows Authentication on the RDS for SQL Server instance against that directory." },
+      { id: "D", text: "Run self-managed Active Directory domain controllers on EC2 instances in the VPC, replicate the on-premises forest to them, and point both the application hosts and the database at those controllers." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Amazon RDS for SQL Server supports Windows Authentication only through AWS Managed Microsoft AD, not through AD Connector or Simple AD. A one-way trust in which the AWS directory trusts the on-premises forest lets corporate users authenticate while leaving the on-premises forest authoritative, and Managed Microsoft AD is a real Microsoft AD so LDAP and Group Policy behave normally.",
+    whyWrong: {
+      B: "AD Connector cannot be used to enable Windows Authentication on RDS for SQL Server, and it does not host Group Policy objects of its own, so two of the stated requirements fail.",
+      C: "Simple AD is Samba-based rather than genuine Active Directory. It supports neither forest trusts nor RDS for SQL Server Windows Authentication, and its Group Policy support is limited.",
+      D: "Self-managed domain controllers can satisfy the technical requirements but leave the small operations team patching, monitoring and backing up the controllers themselves."
+    }
+  },
+
+  {
+    id: "sec-061",
+    domain: "Design Secure Architectures",
+    topic: "Certificate management and encryption in transit",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A retailer serves its storefront from an Amazon CloudFront distribution with an Application Load Balancer origin in the eu-west-1 Region. An engineer requested a public certificate for the storefront's custom domain in AWS Certificate Manager in eu-west-1 and validated it successfully, but the certificate does not appear in the list of certificates available to the CloudFront distribution. The team needs the custom domain served over HTTPS. What should the engineer do?",
+    options: [
+      { id: "A", text: "Request or import a public ACM certificate for the domain in the us-east-1 Region and select it in the distribution settings." },
+      { id: "B", text: "Attach the existing eu-west-1 certificate to the Application Load Balancer and configure the CloudFront distribution to use the default CloudFront certificate for viewer connections, so that visitors reach the site through the distribution's own domain name rather than the storefront domain." },
+      { id: "C", text: "Issue a certificate for the domain from an AWS Private Certificate Authority in eu-west-1 and associate that certificate with the CloudFront distribution." },
+      { id: "D", text: "Enable automatic certificate rotation on the eu-west-1 certificate so that ACM replicates the validated certificate into the Regions used by CloudFront edge locations." }
+    ],
+    correct: ["A"],
+    explanation:
+      "CloudFront reads viewer certificates only from ACM in us-east-1, regardless of where the origin runs. Requesting the certificate in that Region makes it selectable. The eu-west-1 certificate remains useful for the ALB itself, since a load balancer requires a certificate in its own Region.",
+    whyWrong: {
+      B: "The default CloudFront certificate covers only the cloudfront.net domain name, so the retailer's own domain would produce certificate warnings for viewers.",
+      C: "A private CA issues certificates that public browsers do not trust, so storefront visitors would see errors. Private CA suits internal traffic, not a public site.",
+      D: "ACM does not replicate certificates between Regions, and rotation concerns renewal rather than Regional availability."
+    }
+  },
+
+  {
+    id: "sec-062",
+    domain: "Design Secure Architectures",
+    topic: "VPC connectivity: peering, Transit Gateway and VPN",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A financial services firm connects its data centre to AWS with a single 10 Gbps Direct Connect dedicated connection terminating at one Direct Connect location. An architecture review flags that a failure of that Direct Connect location would sever all connectivity to the VPC. The firm wants connectivity to survive such a failure, accepts reduced bandwidth while running on the backup path, and wants to limit additional monthly cost. Which approach is MOST cost-effective?",
+    options: [
+      { id: "A", text: "Configure an AWS Site-to-Site VPN over the internet as a backup path to the same virtual private gateway, with BGP shifting traffic on failure." },
+      { id: "B", text: "Order a second 10 Gbps dedicated connection at a different Direct Connect location and run both connections in an active-active configuration using BGP for path selection." },
+      { id: "C", text: "Order a second 10 Gbps dedicated connection at the same Direct Connect location, terminate it on a separate customer router, and advertise the same prefixes over both connections so that either router can carry the full production load on its own." },
+      { id: "D", text: "Attach the virtual private gateway to an AWS Transit Gateway and associate the existing Direct Connect connection with a transit virtual interface for automatic redundancy." }
+    ],
+    correct: ["A"],
+    explanation:
+      "A Site-to-Site VPN over the public internet is billed at a low hourly rate plus data transfer and provides an independent path that does not share the failed Direct Connect location. BGP withdraws the Direct Connect routes on failure and traffic moves to the VPN, at lower bandwidth but with continuity, which is what the firm asked for.",
+    whyWrong: {
+      B: "A second dedicated connection at a different location does give the strongest resilience, but a second 10 Gbps port plus cross-connect and provider circuit is far more expensive than a VPN backup.",
+      C: "A second connection at the same Direct Connect location protects against a device or port failure but not against loss of that location, which is the risk the review identified.",
+      D: "Transit Gateway changes how networks are attached and routed. It adds no additional physical path, so a Direct Connect location failure still removes all connectivity."
+    }
+  },
+
+  {
+    id: "res-053",
+    domain: "Design Resilient Architectures",
+    topic: "Disaster recovery strategies",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A media company runs about 120 virtual machines on VMware in its own data centre. Management wants an AWS-based disaster recovery capability with a recovery point objective measured in minutes and a recovery time objective under one hour. The finance team refuses to fund a permanently running duplicate of the production fleet, and the operations team does not want to rewrite the applications. Which solution meets these requirements MOST cost-effectively?",
+    options: [
+      { id: "A", text: "Use AWS Elastic Disaster Recovery to replicate the source machines continuously into a low-cost staging area, launching full recovery instances only at failover." },
+      { id: "B", text: "Use AWS Backup with a scheduled daily backup plan that copies recovery points to the target Region, and restore the machines into EC2 when a disaster is declared." },
+      { id: "C", text: "Build a warm standby environment in the target Region with scaled-down but permanently running copies of every virtual machine, keep them patched in step with production, and scale them up when a disaster is declared." },
+      { id: "D", text: "Use AWS Database Migration Service with ongoing change data capture to replicate the workloads into the target Region and promote the replicas during a failover." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Elastic Disaster Recovery replicates block-level changes continuously into an inexpensive staging area that uses low-cost storage and small replication servers rather than full production instances. That yields an RPO of minutes, allows conversion and launch within the RTO, and needs no application changes.",
+    whyWrong: {
+      B: "Daily backups give a recovery point up to twenty-four hours old, which misses an RPO measured in minutes, and restoring 120 machines is unlikely to complete within an hour.",
+      C: "Warm standby can meet both objectives but requires running duplicate infrastructure continuously, which is the cost the finance team rejected.",
+      D: "Database Migration Service replicates databases, not whole virtual machines, so the application and operating system layers would be left unprotected."
+    }
+  },
+
+  {
+    id: "res-054",
+    domain: "Design Resilient Architectures",
+    topic: "Backup and restore with AWS Backup",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A research institute keeps 40 TB of instrument output on an on-premises NFS share. Scientists must continue to read and write the newest files from the existing share with low latency, while all data is durably stored in Amazon S3 so that a future analytics pipeline can read the files directly as S3 objects. The institute wants to avoid rewriting the instrument software. Which solution meets these requirements?",
+    options: [
+      { id: "A", text: "Deploy an Amazon S3 File Gateway on premises, expose it to the instruments as an NFS mount, and let it store each file as a native object in an S3 bucket." },
+      { id: "B", text: "Deploy a Volume Gateway in cached mode, present iSCSI volumes to the instrument hosts, and take EBS snapshots of those volumes into the S3 bucket on a schedule." },
+      { id: "C", text: "Deploy a Tape Gateway, point the existing backup application at the virtual tape library, and store the resulting virtual tapes in the S3 bucket so that the institute keeps the retention schedules it already operates." },
+      { id: "D", text: "Run a scheduled AWS DataSync task that copies the NFS share to the S3 bucket every night and have the analytics pipeline read the copied objects." }
+    ],
+    correct: ["A"],
+    explanation:
+      "S3 File Gateway presents an NFS or SMB mount and writes each file through to S3 as a discrete object, keeping a local cache for low-latency access to recent data. Because the files land as native objects, the future analytics pipeline can read them directly without an intermediate extraction step.",
+    whyWrong: {
+      B: "Volume Gateway stores data as EBS snapshots rather than individual objects, so an analytics pipeline cannot read the files from S3 without restoring a volume first.",
+      C: "Tape Gateway writes virtual tape images intended for backup software. The contents are not addressable as individual objects for analytics.",
+      D: "A nightly DataSync copy duplicates the data rather than providing the low-latency working share, and files written after the last run would be missing."
+    }
+  },
+
+  {
+    id: "res-055",
+    domain: "Design Resilient Architectures",
+    topic: "Load balancer selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A gaming company is launching a multiplayer backend that communicates with clients over UDP. At peak the service is expected to hold several million concurrent connections, and partner studios need a small set of fixed IP addresses to place in their own firewall allow-lists. The backend runs on EC2 instances in an Auto Scaling group across three Availability Zones. Which load balancing solution should the architect choose?",
+    options: [
+      { id: "A", text: "A Network Load Balancer with a UDP listener, which provides one static IP address per Availability Zone and can optionally take Elastic IP addresses for the allow-list requirement." },
+      { id: "B", text: "An Application Load Balancer with a listener rule that forwards traffic to the Auto Scaling group, fronted by Elastic IP addresses assigned to each of its nodes." },
+      { id: "C", text: "A Gateway Load Balancer that distributes the UDP flows to the instances while preserving the original source and destination addresses." },
+      { id: "D", text: "A Classic Load Balancer configured with a TCP listener and cross-zone load balancing enabled across the three Availability Zones." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Network Load Balancer operates at layer 4, supports UDP listeners, scales to millions of connections and exposes one static IP per Availability Zone, with the option to assign Elastic IPs. That matches every stated requirement.",
+    whyWrong: {
+      B: "Application Load Balancer works only with HTTP and HTTPS, so it cannot carry UDP, and its addresses are not static.",
+      C: "Gateway Load Balancer exists to insert third-party virtual appliances into the traffic path. It is not the entry point for an application's own clients.",
+      D: "Classic Load Balancer supports TCP and SSL but not UDP, and it is a previous-generation option that AWS no longer recommends for new designs."
+    }
+  },
+
+  {
+    id: "perf-052",
+    domain: "Design High-Performing Architectures",
+    topic: "Data transfer and migration services",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A broadcaster must move a 500 TB video archive from its data centre into Amazon S3. The site has a 1 Gbps internet connection that is also carrying production traffic, and the migration must finish within a few weeks. After the bulk archive has landed, roughly 2 TB of newly produced footage per day must continue to flow into the same bucket. Which TWO actions together meet these requirements? (Select TWO.)",
+    options: [
+      { id: "A", text: "Order AWS Snowball Edge devices, copy the archive onto them locally, and ship them to AWS for import." },
+      { id: "B", text: "Deploy AWS DataSync with an on-premises agent and schedule daily tasks for the new footage." },
+      { id: "C", text: "Copy the entire 500 TB archive over the existing internet connection using multipart uploads from a script running on several on-premises hosts in parallel, throttled so that production traffic keeps priority during business hours." },
+      { id: "D", text: "Provision an AWS Direct Connect dedicated connection and transfer both the archive and the daily footage across it once the circuit has been installed." },
+      { id: "E", text: "Enable S3 Transfer Acceleration on the destination bucket and upload the archive through the accelerated endpoint from the existing internet connection." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Physically shipping the bulk archive on Snowball Edge devices removes the constraint of a shared 1 Gbps link, and DataSync then handles the recurring daily transfer with scheduling, integrity checking and retries built in. Together they cover the one-off migration and the steady-state flow.",
+    whyWrong: {
+      C: "A 500 TB transfer over a shared 1 Gbps link would take months even at full utilisation, and saturating the link would damage production traffic.",
+      D: "A dedicated connection is useful long term, but provisioning typically takes weeks before any data moves, so the deadline is at risk.",
+      E: "Transfer Acceleration improves throughput over long distances but is still bounded by the same 1 Gbps local circuit, so the bulk copy remains too slow."
+    }
+  },
+
+  {
+    id: "perf-053",
+    domain: "Design High-Performing Architectures",
+    topic: "Data transfer and migration services",
+    difficulty: "hard",
+    type: "single",
+    question:
+      "A logistics company is moving a 4 TB Oracle database that backs a warehouse system to Amazon Aurora PostgreSQL. The application can tolerate only a few minutes of downtime at cutover, and the schema makes heavy use of Oracle-specific stored procedures and data types that have no direct PostgreSQL equivalent. The team wants to validate the converted schema before any production data is moved. Which approach should the architect recommend?",
+    options: [
+      { id: "A", text: "Convert the schema with AWS Schema Conversion Tool, fix the objects its assessment report flags, then run a DMS task in full load plus change data capture mode." },
+      { id: "B", text: "Run an AWS Database Migration Service full load task against the target Aurora cluster and allow DMS to create the target schema automatically as part of that task, then cut over when the load finishes." },
+      { id: "C", text: "Export the Oracle database with Data Pump, copy the dump file to Amazon S3, and import it into the Aurora PostgreSQL cluster during an extended maintenance window." },
+      { id: "D", text: "Create an Aurora PostgreSQL read replica of the Oracle database and promote it to a standalone cluster once replication has caught up at the cutover point." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Schema Conversion Tool performs the heterogeneous conversion and produces an assessment report identifying objects that require manual work, which is exactly the pre-migration validation the team wants. DMS with full load and change data capture then keeps the target current while the source stays online, holding cutover downtime to minutes.",
+    whyWrong: {
+      B: "DMS creates only a basic target schema of tables and primary keys. Stored procedures, custom types and secondary indexes are not converted, so the application would not work.",
+      C: "A Data Pump export and import is an offline operation whose duration scales with database size, breaching the few-minute downtime limit, and it does not translate Oracle-specific objects.",
+      D: "Read replicas exist only within the same engine family. Aurora PostgreSQL cannot be made a replica of an Oracle database."
+    }
+  },
+
+  {
+    id: "perf-054",
+    domain: "Design High-Performing Architectures",
+    topic: "Shared file storage selection",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "An engineering firm is migrating a Windows-based document management application to EC2 instances in two Availability Zones. The application requires an SMB file share, and access to individual folders must be controlled by Active Directory group membership using standard Windows ACLs. The share must remain available if one Availability Zone fails. Which storage solution should the architect select?",
+    options: [
+      { id: "A", text: "Amazon FSx for Windows File Server in a Multi-AZ deployment, joined to AWS Managed Microsoft AD." },
+      { id: "B", text: "Amazon Elastic File System with mount targets in both Availability Zones and POSIX permissions mapped to the corporate group identifiers." },
+      { id: "C", text: "An Amazon S3 File Gateway on an EC2 instance in each Availability Zone, exposing an SMB share backed by a shared S3 bucket." },
+      { id: "D", text: "Amazon FSx for Lustre with a persistent deployment type linked to an S3 bucket holding the document repository." }
+    ],
+    correct: ["A"],
+    explanation:
+      "FSx for Windows File Server is a native Windows file system that speaks SMB and enforces NTFS ACLs against Active Directory identities. A Multi-AZ deployment maintains a standby file server in a second Availability Zone with automatic failover, meeting the availability requirement.",
+    whyWrong: {
+      B: "EFS presents NFS with POSIX permissions. A Windows application expecting SMB and NTFS ACLs cannot use it without substantial change.",
+      C: "File Gateway offers SMB but is a caching appliance rather than a highly available file system, and running one per Availability Zone over the same bucket does not give consistent locking or failover.",
+      D: "FSx for Lustre targets high-throughput compute workloads over POSIX clients. It does not provide SMB access or NTFS permissions."
+    }
+  },
+
+  {
+    id: "cost-043",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Data transfer and NAT cost",
+    difficulty: "medium",
+    type: "multi",
+    question:
+      "A analytics platform runs on EC2 instances in private subnets that reach Amazon S3 and Amazon DynamoDB through a NAT gateway. A cost review shows that NAT gateway data processing charges have become one of the three largest line items on the monthly bill, and almost all of the traffic is reads from an S3 bucket and queries against DynamoDB tables in the same Region. Which TWO changes reduce this cost MOST effectively? (Select TWO.)",
+    options: [
+      { id: "A", text: "Create a gateway VPC endpoint for Amazon S3 and add it to the private subnet route tables." },
+      { id: "B", text: "Create a gateway VPC endpoint for Amazon DynamoDB and associate it with those same route tables." },
+      { id: "C", text: "Replace the NAT gateway with a NAT instance on a smaller instance type, route all private subnet traffic through it, and add health checks so a failed instance is replaced automatically." },
+      { id: "D", text: "Move the EC2 instances into public subnets and assign each one an Elastic IP address so that they reach the services directly." },
+      { id: "E", text: "Enable S3 Transfer Acceleration on the bucket so that requests from the private subnets take a shorter network path." }
+    ],
+    correct: ["A", "B"],
+    explanation:
+      "Gateway endpoints for S3 and DynamoDB are free of charge and keep traffic to those services inside the AWS network, removing both the NAT gateway data processing charge and the associated data transfer for that traffic.",
+    whyWrong: {
+      C: "A NAT instance shifts cost to an instance you must patch, scale and make highly available, and it still processes the same traffic volume.",
+      D: "Placing analytics instances in public subnets undermines the security posture that motivated private subnets, and data transfer charges still apply.",
+      E: "Transfer Acceleration is intended for long-distance uploads over the internet and adds a per-gigabyte premium, so it would raise cost rather than lower it."
+    }
+  },
+
+  {
+    id: "cost-044",
+    domain: "Design Cost-Optimized Architectures",
+    topic: "Compute pricing models",
+    difficulty: "medium",
+    type: "single",
+    question:
+      "A software company runs a steady baseline of production workloads split across EC2 instances, AWS Fargate tasks and AWS Lambda functions. Over the next year the team expects to keep total compute spend roughly constant but to shift a growing share of it from EC2 to Fargate as services are containerised, and it may change instance families and Regions along the way. The company wants the largest discount it can commit to without constraining those changes. Which purchasing option should it choose?",
+    options: [
+      { id: "A", text: "Purchase a one-year Compute Savings Plan for the baseline hourly spend, which applies automatically across EC2, Fargate and Lambda regardless of instance family or Region." },
+      { id: "B", text: "Purchase one-year EC2 Instance Savings Plans covering the current instance families in the current Regions, and buy additional plans as workloads move to Fargate." },
+      { id: "C", text: "Purchase one-year Standard Reserved Instances for the current EC2 footprint and rely on On-Demand pricing for the Fargate and Lambda usage." },
+      { id: "D", text: "Run the baseline workloads on Spot Instances with a capacity-optimized allocation strategy and keep On-Demand capacity in reserve for interruptions." }
+    ],
+    correct: ["A"],
+    explanation:
+      "Compute Savings Plans commit to an hourly spend rather than to specific resources and apply automatically across EC2, Fargate and Lambda, in any Region and any instance family. That preserves the flexibility to containerise and relocate workloads while still discounting the committed baseline.",
+    whyWrong: {
+      B: "EC2 Instance Savings Plans deliver a deeper discount but lock the commitment to an instance family in one Region, and they do not apply to Fargate or Lambda at all.",
+      C: "Standard Reserved Instances are the least flexible option, cannot be applied to Fargate or Lambda, and would leave the growing container spend undiscounted.",
+      D: "Spot capacity can be reclaimed at short notice, which is unsuitable for a steady production baseline, and Spot is a capacity choice rather than a commitment discount."
+    }
   }
 
 ];
