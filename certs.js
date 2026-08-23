@@ -112,7 +112,7 @@ window.CERTS = [
   },
 
   {
-    id: "DVA-C02",
+    id: "DVA-C02", parked: true,
     short: "DVA",
     name: "Developer – Associate",
     phase: 1,
@@ -176,7 +176,7 @@ window.CERTS = [
   },
 
   {
-    id: "SAP-C02",
+    id: "SAP-C02", parked: true,
     short: "SAP",
     name: "Solutions Architect – Professional",
     phase: 2,
@@ -239,7 +239,7 @@ window.CERTS = [
   },
 
   {
-    id: "DOP-C02",
+    id: "DOP-C02", parked: true,
     short: "DOP",
     name: "DevOps Engineer – Professional",
     phase: 2,

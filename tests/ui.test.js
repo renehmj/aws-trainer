@@ -18,14 +18,24 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const w = dom.window, d = w.document;
   w.confirm = () => true; w.alert = () => {};
   const nav = v => [...d.querySelectorAll('.navi')].find(b => b.dataset.view === v).click();
-  const usePath = async id => { d.querySelector('.path[data-cert="' + id + '"]').click(); await sleep(420); };
+  // Parked paths have no rail button, so fall back to the switcher directly —
+  // per-path isolation still has to hold for banks that are hidden from the UI.
+  const usePath = async id => {
+    const btn = d.querySelector('.path[data-cert="' + id + '"]');
+    if (btn) btn.click(); else w.setCert(id);
+    await sleep(420);
+  };
   const reloadPath = async id => { await usePath(id === 'SAA-C03' ? 'DVA-C02' : 'SAA-C03'); await usePath(id); };
   const idOf = host => d.querySelector(host + ' .qmeta .tag:nth-child(4)').textContent;
 
   /* ---------- 1. paths configured ---------- */
   const CERTS = w.CERTS, BANKS = w.BANKS;
   ok(CERTS.length === 4, `4 certification paths configured (${CERTS.map(c=>c.id).join(', ')})`);
-  ok(d.querySelectorAll('#pathList .path').length === 4, 'side rail lists all four paths');
+  // Only unparked paths are rendered — the focus is a single certification at a time.
+  const visible = CERTS.filter(c => !c.parked);
+  ok(d.querySelectorAll('#pathList .path').length === visible.length,
+     `rail lists only unparked paths (${visible.map(c=>c.id).join(', ')})`);
+  ok(visible.length === 1 && visible[0].id === 'SAA-C03', 'SAA-C03 is the only active goal');
   ok(CERTS.every(c => c.domains.reduce((s,x)=>s+x.weight,0) > 0.999 &&
                       c.domains.reduce((s,x)=>s+x.weight,0) < 1.001),
      'every path\'s domain weights sum to 100%');
@@ -38,7 +48,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(pathBtns.every(b => b.querySelector('.code') && b.querySelector('.mini b') && b.querySelector('.pcs')),
      'each path row shows its code, progress bar and stats');
   const codeColors = pathBtns.map(b => b.querySelector('.code').getAttribute('style'));
-  ok(new Set(codeColors).size === 4, 'each path carries a distinct identity colour');
+  ok(new Set(codeColors).size === pathBtns.length, 'each visible path carries a distinct identity colour');
   ok(pathBtns.filter(b => b.classList.contains('on')).length === 1, 'exactly one path marked active');
   ok(d.getElementById('pathChip').textContent.includes('SAA-C03'), 'top bar chip names the active path');
   // Counts here are derived, not hard-coded — the rail grows as views are added.
@@ -222,8 +232,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(d.getElementById('pathChip').textContent.includes('DVA-C02'), 'switched to the DVA path');
   ok(d.documentElement.style.getPropertyValue('--accent').trim() === '#d95926',
      'switching path re-tints the whole UI');
-  ok(d.querySelector('#pathList .path[data-cert="DVA-C02"]').classList.contains('on'),
-     'rail highlights the newly active path');
+  const dvaBtn = d.querySelector('#pathList .path[data-cert="DVA-C02"]');
+  ok(dvaBtn ? dvaBtn.classList.contains('on') : true,
+     'rail highlights the active path when that path is visible');
   ok(d.getElementById('heroFig').textContent.trim() === '—',
      'DVA dashboard starts empty — SAA progress does not leak across');
   nav('topics'); await sleep(200);
@@ -344,7 +355,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   /* ---------- 10. export bundle ---------- */
   nav('data'); await sleep(120);
-  ok(d.getElementById('bankStats').querySelectorAll('.row').length === 4, 'data view lists all four paths');
+  ok(d.querySelectorAll('#bankStats .row').length === CERTS.filter(c=>!c.parked).length,
+     'data view lists the active goal only');
 
   /* ---------- 11. paste-based import ---------- */
   const sample = [

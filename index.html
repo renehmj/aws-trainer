@@ -708,7 +708,7 @@ function buildTopics(){
 }
 
 function setCert(id){
-  CERT = CERTS.find(c => c.id === id) || CERTS[0];
+  CERT = CERTS.find(c => c.id === id) || VISIBLE_CERTS()[0] || CERTS[0];
   try{ localStorage.setItem(ACTIVE_KEY, CERT.id); }catch(e){}
   // Built-in bank plus anything pasted in for this path.
   BANK = ((window.BANKS || {})[CERT.id] || []).concat(loadAdded(CERT.id));
@@ -1427,9 +1427,14 @@ function pathSummary(id){
   return {a, c, seen, acc: a ? c/a : null, bank: ((window.BANKS || {})[id] || []).length};
 }
 
+/* Paths marked parked in certs.js stay in the data — their banks and progress are
+ * untouched — but are hidden from the rail so the UI is single-goal. Unpark by
+ * removing the flag in certs.js. */
+const VISIBLE_CERTS = () => CERTS.filter(c => !c.parked);
+
 function renderPaths(){
   const host = document.getElementById("pathList");
-  host.innerHTML = CERTS.slice().sort((x,y) => x.order - y.order).map(p => {
+  host.innerHTML = VISIBLE_CERTS().slice().sort((x,y) => x.order - y.order).map(p => {
     const col = pathColor(p.id), s = pathSummary(p.id), on = CERT && p.id === CERT.id;
     return '<button class="path' + (on ? " on" : "") + '" data-cert="' + p.id + '"' +
         (on ? ' style="border-left-color:' + col + '"' : '') + '>' +
@@ -1484,7 +1489,7 @@ function refreshDashboard(){
 
   renderDomainChart(); renderMasteryChart(); renderScoreChart(); renderWeakChart();
 
-  document.getElementById("bankStats").innerHTML = CERTS.map(c => {
+  document.getElementById("bankStats").innerHTML = VISIBLE_CERTS().map(c => {
     const bank = ((window.BANKS || {})[c.id] || []).concat(loadAdded(c.id));
     const syllabus = c.domains.reduce((n,d) => n + (d.topics || []).length, 0);
     const covered = new Set(bank.map(q => q.domain + " :: " + q.topic)).size;
@@ -2114,7 +2119,8 @@ document.getElementById("mockSubmit").addEventListener("click", () => {
 });
 
 let startId = CERTS[0].id;
-try{ const a = localStorage.getItem(ACTIVE_KEY); if(a && CERTS.some(c => c.id === a)) startId = a; }catch(e){}
+// Never resume onto a parked path — the saved id may predate the parking.
+try{ const a = localStorage.getItem(ACTIVE_KEY); if(a && CERTS.some(c => c.id === a && !c.parked)) startId = a; }catch(e){}
 setCert(startId);
 </script>
 </body>
