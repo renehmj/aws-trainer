@@ -30,7 +30,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   /* ---------- 1. paths configured ---------- */
   const CERTS = w.CERTS, BANKS = w.BANKS;
-  ok(CERTS.length === 4, `4 certification paths configured (${CERTS.map(c=>c.id).join(', ')})`);
+  ok(CERTS.length >= 4, `${CERTS.length} certification paths configured (${CERTS.map(c=>c.id).join(', ')})`);
   // Only unparked paths are rendered — the focus is a single certification at a time.
   const visible = CERTS.filter(c => !c.parked);
   ok(d.querySelectorAll('#pathList .path').length === visible.length,
@@ -91,11 +91,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(problems.length === 0, 'all banks schema-valid against their own path' + (problems.length ? ' — ' + problems.join('; ') : ''));
   // Derived, not hard-coded — the bank grows every time questions are written.
   const sizes = Object.fromEntries(CERTS.map(c => [c.id, (BANKS[c.id]||[]).length]));
-  ok(Object.values(sizes).every(n => n > 0),
-     `every path has a non-empty bank (${JSON.stringify(sizes)})`);
+  ok(CERTS.filter(c => !c.parked).every(c => sizes[c.id] > 0),
+     `every active path has a non-empty bank (${JSON.stringify(sizes)})`);
+  ok(CERTS.every(c => Array.isArray(BANKS[c.id])),
+     'every path — placeholders included — has a bank array declared');
   ok(sizes['SAA-C03'] === Math.max(...Object.values(sizes)),
      'SAA-C03 is the most developed bank');
-  ok(CERTS.every(c => (BANKS[c.id]||[]).length > 0), 'every path now has questions');
+  ok(CERTS.filter(c=>!c.parked).every(c => (BANKS[c.id]||[]).length > 0), 'the active path has questions');
   // domain mix must track the real blueprint weights
   const mixOff = CERTS.filter(c => (BANKS[c.id]||[]).length >= 40).map(c => {
     const B = BANKS[c.id];
